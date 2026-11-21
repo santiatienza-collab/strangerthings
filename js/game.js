@@ -1029,8 +1029,11 @@ function drawTitle(t) {
   });
   sprite('demogorgon', 'walk', Math.floor(t * 7) % 4, 760, 450, 1.2, true);
   sprite('vecna', 'idle', Math.floor(t * 4) % 4, 860, 450, 1.5, true);
-  { const kn = a => keyName(K[a][0]); text(`MOVER ${kn('left')} / ${kn('right')}   SALTAR ${kn('jump')}   DISPARAR ${kn('fire')}   BOMBA ${kn('gren')}`, W / 2, 492, 9, '#ddd', 'center'); }
-  text('P / ESC pausa y ajustes   M sonido   F pantalla completa   (las teclas se cambian en AJUSTES)', W / 2, 512, 8, '#aaa', 'center');
+  if (document.body.classList.contains('touch')) {
+    text('CRUCETA: MOVER Y APUNTAR   SALTO / FUEGO / BOMBA   II: PAUSA', W / 2, 492, 9, '#ddd', 'center');
+    text('GIRA EL MOVIL EN HORIZONTAL', W / 2, 512, 8, '#aaa', 'center');
+  } else { const kn = a => keyName(K[a][0]); text(`MOVER ${kn('left')} / ${kn('right')}   SALTAR ${kn('jump')}   DISPARAR ${kn('fire')}   BOMBA ${kn('gren')}`, W / 2, 492, 9, '#ddd', 'center'); }
+  if (!document.body.classList.contains('touch')) text('P / ESC pausa y ajustes   M sonido   F pantalla completa   (las teclas se cambian en AJUSTES)', W / 2, 512, 8, '#aaa', 'center');
 }
 
 function drawSelect(t) {
@@ -1224,4 +1227,12 @@ loadAll().then(() => {
 requestAnimationFrame(frame);
 canvas.focus();
 window.__G = G; window.__M = M; window.__K = K; window.__SET = SET; // depuración
+// puente para los controles táctiles (js/touch.js)
+window.SSInput = {
+  press(code) { if (!keys[code]) pressed[code] = true; keys[code] = true; Snd.unlock(); },
+  release(code) { keys[code] = false; },
+  unlock: () => Snd.unlock(),
+  state: () => G.state,
+  K,
+};
 })();

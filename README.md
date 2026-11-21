@@ -19,6 +19,12 @@ Por defecto (todas se pueden cambiar en **AJUSTES → CONTROLES**; se guardan en
 
 El menú de pausa incluye ajustes de música, efectos, temblor de pantalla y pantalla completa.
 
+## Móvil y tablet (Android)
+- En **Android** aparecen automáticamente una **cruceta** y tres botones (**SALTO, FUEGO, BOMBA**) más un botón de **pausa**, todos transparentes. Admiten multitoque (correr, saltar y disparar a la vez) y la cruceta acepta diagonales y deslizar el dedo. En los menús, la cruceta navega, FUEGO acepta y BOMBA vuelve atrás.
+- Hay que jugar en **horizontal**; en vertical se muestra un aviso.
+- **Instalar como app:** abre la web en Chrome (Android) → menú ⋮ → *Instalar aplicación* (o el botón *INSTALAR APP* del título). Se abre a pantalla completa y funciona **sin conexión**.
+- Los controles táctiles y la instalación solo se activan en Android. Para probar los controles en otro dispositivo: añade `?touch=1` a la URL.
+
 ## Personajes
 Will (rifle), Eleven (telequinesis perforante), Mike (tirachinas rápido), Dustin (bengalas x3), Steve (bate con clavos, cuerpo a cuerpo).
 
@@ -30,6 +36,9 @@ Todo el audio (efectos y música) se sintetiza en el navegador con Web Audio; no
 
 ## Publicar en GitHub Pages
 Settings → Pages → *Deploy from a branch* → `main` / `/ (root)`.
+
+## Archivos de la app instalable
+`manifest.webmanifest` (nombre, iconos, pantalla completa), `sw.js` (caché para jugar sin conexión) e `icons/`. Si cambias archivos del juego, sube el número de `CACHE` en `sw.js` para forzar la actualización.
 
 ## Regenerar sprites
 `python3 tools/build_assets.py <carpeta_con_los_sprite_sheets>` (requiere Pillow).
