@@ -11,39 +11,57 @@ const FONT = '"Press Start 2P", "Courier New", monospace';
 /* ------------------------------------------------------------------ input */
 const keys = {}, pressed = {};
 addEventListener('keydown', e => {
+  if (M.capture) { // reasignando una tecla desde AJUSTES
+    e.preventDefault();
+    if (e.code === 'Escape') M.capture = null;
+    else if (!RESERVED.includes(e.code)) { assignKey(M.capture, e.code); M.capture = null; Snd.ok(); }
+    return;
+  }
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
   if (!keys[e.code]) pressed[e.code] = true;
   keys[e.code] = true;
   Snd.unlock();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
-addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (G.state === 'play') G.state = 'pause'; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (G.state === 'play') { G.state = 'pause'; openMenu('pause'); } });
 const down = (...c) => c.some(k => keys[k]);
 const tap = (...c) => c.some(k => pressed[k]);
-const K = {
-  left: ['ArrowLeft', 'KeyA'], right: ['ArrowRight', 'KeyD'], up: ['ArrowUp', 'KeyW'], down: ['ArrowDown', 'KeyS'],
-  jump: ['KeyX', 'KeyK', 'Space'], fire: ['KeyZ', 'KeyJ', 'ControlLeft', 'ControlRight'], gren: ['KeyC', 'KeyL'],
-  ok: ['Enter', 'Space', 'KeyZ'],
-};
+const K = {}; // acciones -> [código de tecla]; se rellena desde los ajustes
+
+/* --------------------------------------------------------------- ajustes */
+const SET = { music: 7, sfx: 8, shake: true, keys: {} };
+try { Object.assign(SET, JSON.parse(localStorage.getItem('strangerslug.settings') || '{}')); } catch (e) { /* sin almacenamiento */ }
+const DEFAULT_KEYS = { left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown', jump: 'KeyX', fire: 'KeyZ', gren: 'KeyC' };
+const NAV = { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'] };
+const ACTIONS = [['left', 'IZQUIERDA'], ['right', 'DERECHA'], ['up', 'ARRIBA / APUNTAR'], ['down', 'ABAJO / AGACHARSE'], ['jump', 'SALTAR'], ['fire', 'DISPARAR'], ['gren', 'BOMBA']];
+const RESERVED = ['Escape', 'Enter', 'KeyP', 'KeyM', 'KeyF'];
+function applyKeys() { for (const a in DEFAULT_KEYS) K[a] = [(SET.keys && typeof SET.keys[a] === 'string' && SET.keys[a]) || DEFAULT_KEYS[a]]; }
+applyKeys();
+const keyName = c => ({ ArrowLeft: 'FLECHA IZQ', ArrowRight: 'FLECHA DER', ArrowUp: 'FLECHA ARRIBA', ArrowDown: 'FLECHA ABAJO', Space: 'ESPACIO',
+  ControlLeft: 'CTRL IZQ', ControlRight: 'CTRL DER', ShiftLeft: 'SHIFT IZQ', ShiftRight: 'SHIFT DER', AltLeft: 'ALT', Tab: 'TAB', Backspace: 'RETROCESO' }[c]
+  || c.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, 'NUM ').toUpperCase());
+const saveSet = () => { try { localStorage.setItem('strangerslug.settings', JSON.stringify(SET)); } catch (e) { /* ignorar */ } };
 
 /* ------------------------------------------------------------------ audio */
 const Snd = (() => {
-  let ac, master, muted = false, musicTimer = null, step = 0, fast = false;
+  let ac, master, musicBus, sfxBus, muted = false, musicTimer = null, step = 0, fast = false;
+  const applyVol = () => { if (musicBus) { musicBus.gain.value = SET.music / 10; sfxBus.gain.value = SET.sfx / 10; } };
   const unlock = () => {
     if (!ac) {
-      try { ac = new (window.AudioContext || window.webkitAudioContext)(); master = ac.createGain(); master.gain.value = 0.3; master.connect(ac.destination); }
+      try { ac = new (window.AudioContext || window.webkitAudioContext)(); master = ac.createGain(); master.gain.value = 0.3; master.connect(ac.destination);
+        musicBus = ac.createGain(); sfxBus = ac.createGain(); musicBus.connect(master); sfxBus.connect(master); applyVol(); }
       catch (e) { return; }
       startMusic();
     }
     if (ac.state === 'suspended') ac.resume();
   };
-  const tone = (f, d, type = 'square', v = 0.15, slide = 0, delay = 0) => {
+  const tone = (f, d, type = 'square', v = 0.15, slide = 0, delay = 0, bus = 'sfx') => {
     if (!ac || muted) return;
     const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
     o.type = type; o.frequency.setValueAtTime(f, t);
     if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(25, f + slide), t + d);
     g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + d);
-    o.connect(g); g.connect(master); o.start(t); o.stop(t + d + 0.03);
+    o.connect(g); g.connect(bus === 'music' ? musicBus : sfxBus); o.start(t); o.stop(t + d + 0.03);
   };
   const noise = (d, v = 0.25, lp = 1500) => {
     if (!ac || muted) return;
@@ -51,7 +69,7 @@ const Snd = (() => {
     for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n);
     const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
     s.buffer = buf; f.type = 'lowpass'; f.frequency.value = lp; g.gain.value = v;
-    s.connect(f); f.connect(g); g.connect(master); s.start();
+    s.connect(f); f.connect(g); g.connect(sfxBus); s.start();
   };
   // arpegio sintetizado en Do menor (original, ambiente retro)
   const ROOT = [130.81, 103.83, 116.54, 98.0];
@@ -59,16 +77,16 @@ const Snd = (() => {
   const tick = () => {
     if (ac && !muted) {
       const bar = Math.floor(step / 16) % 4, root = ROOT[bar];
-      if (step % 16 === 0) tone(root / 2, 1.1, 'sawtooth', 0.09);
-      tone(root * 2 * ARP[step % 8], 0.18, 'triangle', 0.07);
-      if (fast && step % 4 === 2) tone(root, 0.08, 'square', 0.04);
+      if (step % 16 === 0) tone(root / 2, 1.1, 'sawtooth', 0.09, 0, 0, 'music');
+      tone(root * 2 * ARP[step % 8], 0.18, 'triangle', 0.07, 0, 0, 'music');
+      if (fast && step % 4 === 2) tone(root, 0.08, 'square', 0.04, 0, 0, 'music');
     }
     step++;
     musicTimer = setTimeout(tick, fast ? 120 : 170);
   };
   const startMusic = () => { if (!musicTimer) tick(); };
   return {
-    unlock, setFast: v => { fast = v; },
+    unlock, applyVol, setFast: v => { fast = v; },
     toggleMute: () => { muted = !muted; return muted; },
     get muted() { return muted; },
     shoot: () => tone(900, 0.07, 'square', 0.1, -600),
@@ -164,7 +182,7 @@ const G = {
   state: 'loading', t: 0, sel: 0, charId: 'will', stage: 0, score: 0, lives: 3,
   p: null, cam: { x: 0, max: 0 }, plats: [], enemies: [], bullets: [], eproj: [], haz: [], gren: [],
   items: [], parts: [], rings: [], spawns: [], si: 0, bossSpawned: false, shake: 0, banner: 0,
-  clearT: 0, flash: 0, noEnemyT: 0, bossDelay: 0, bossQueue: [],
+  clearT: 0, flash: 0, noEnemyT: 0, bossDelay: 0, bossQueue: [], bossBanner: 0,
 };
 const spores = Array.from({ length: 46 }, (_, i) => ({ x: Math.random() * W, y: Math.random() * GROUND, s: 1 + Math.random() * 2, v: 8 + Math.random() * 18, par: 0.3 + Math.random() * 0.5, ph: Math.random() * 6 }));
 
@@ -305,6 +323,14 @@ function updatePlayer(dt) {
     }
   }
   if (p.y >= GROUND) { p.y = GROUND; p.vy = 0; p.onGround = true; }
+  // los enemigos son sólidos: bloquean el paso (se pueden saltar por encima)
+  for (const e of G.enemies) {
+    if (e.dead || e.dying) continue;
+    const top = p.y - (p.crouch ? 54 : p.h), overlapY = Math.min(p.y, e.y) - Math.max(top, e.y - e.h);
+    if (overlapY < 14) continue;
+    const dxp = p.x - e.x, minD = 15 + e.w * 0.36;
+    if (Math.abs(dxp) < minD) p.x = e.x + (dxp >= 0 ? minD : -minD);
+  }
   p.x = Math.max(G.cam.x + 26, Math.min(G.cam.x + W - 26, p.x));
 
   if (down(...K.fire) && p.shootCd <= 0 && p.melee <= 0) fire(p);
@@ -347,7 +373,8 @@ function mkEnemy(type, x, face = -1, hpOverride) {
   const T = ETYPES[type];
   const e = { type, x, y: GROUND, vx: 0, vy: 0, hp: hpOverride || T.hp, maxHp: hpOverride || T.hp, w: T.w, h: T.h, sc: T.sc, face,
     state: type === 'vecna' ? 'enter' : 'roar', t: 0, animT: Math.random(), cd: rnd(0.6, 1.6), flash: 0, dead: false, dying: 0,
-    hit: false, inv: false, boss: type === 'brute' && G.bossSpawned, roarT: rnd(4, 7), phase2: false, fired: false };
+    hit: false, inv: false, boss: type === 'brute' && G.bossSpawned, roarT: rnd(4, 7), phase2: false, fired: false,
+    grounded: true, pounced: false, jumpCd: rnd(0.3, 1) };
   if (type === 'vecna') { e.boss = true; e.cd = 1.2; }
   return e;
 }
@@ -376,9 +403,24 @@ function damageEnemy(e, d, dir = 1) {
   }
 }
 
+function landEnemy(e) {
+  e.vy = 0; e.vx = 0; e.grounded = true; e.pounced = false;
+  if (e.type === 'brute') G.shake = Math.max(G.shake, 6);
+}
+function enemyPhysics(e, dt) {
+  const prevY = e.y;
+  if (e.grounded && e.y < GROUND - 0.5 && !G.plats.some(q => e.x > q.x && e.x < q.x + q.w && Math.abs(q.y - e.y) < 3)) e.grounded = false;
+  if (e.grounded) return;
+  e.vy += GRAV * dt; e.y += e.vy * dt; e.x += e.vx * dt;
+  if (e.vy >= 0) {
+    for (const q of G.plats) if (e.x > q.x && e.x < q.x + q.w && prevY <= q.y + 2 && e.y >= q.y) { e.y = q.y; landEnemy(e); return; }
+  }
+  if (e.y >= GROUND) { e.y = GROUND; landEnemy(e); }
+}
+
 function updateEnemy(e, dt) {
   const p = G.p, T = ETYPES[e.type];
-  e.animT += dt; e.t += dt; if (e.flash > 0) e.flash -= dt;
+  e.animT += dt; e.t += dt; if (e.flash > 0) e.flash -= dt; if (e.jumpCd > 0) e.jumpCd -= dt;
   if (e.dying) {
     if (e.type === 'vecna') { updateVecna(e, dt); return; }
     e.dying += dt; if (e.dying > 0.55) e.dead = true; return;
@@ -386,6 +428,12 @@ function updateEnemy(e, dt) {
   if (e.type === 'vecna') { updateVecna(e, dt); return; }
 
   const dx = p.x - e.x, dist = Math.abs(dx);
+  // en el aire: salto para alcanzar al jugador en una plataforma (y golpea al caer sobre él)
+  if (!e.grounded) {
+    if (!e.pounced && !p.dead && ovl({ x: e.x - e.w * 0.4, y: e.y - e.h, w: e.w * 0.8, h: e.h }, pbox(p))) { e.pounced = true; hurtPlayer(T.dmg, e.x); }
+    enemyPhysics(e, dt);
+    return;
+  }
   switch (e.state) {
     case 'roar':
       if (e.t > (e.type === 'brute' ? 0.9 : 0.45)) { e.state = 'walk'; e.t = 0; }
@@ -396,6 +444,13 @@ function updateEnemy(e, dt) {
       const stop = T.reach * 0.75;
       if (dist > stop) e.x += e.face * T.sp * dt;
       e.cd -= dt;
+      // jugador subido en una plataforma: saltar hacia él
+      if (!p.dead && e.jumpCd <= 0 && e.y - p.y > 45 && dist < 240) {
+        const v = Math.min(900, Math.sqrt(2 * GRAV * (e.y - p.y + 32)));
+        e.vy = -v; e.vx = Math.max(-340, Math.min(340, dx / (v / GRAV + 0.15)));
+        e.grounded = false; e.pounced = false; e.jumpCd = e.type === 'brute' ? 2.6 : rnd(1.2, 2);
+        break;
+      }
       if (e.type === 'brute') { e.roarT -= dt; if (e.roarT <= 0 && G.enemies.length < 8) { e.roarT = rnd(5, 8); e.state = 'roar'; e.t = 0; spawnEnemy('runner', Math.min(G.cam.x + W + 40, e.x + 300), -1); } }
       if (dist <= T.reach && e.cd <= 0 && !p.dead && Math.abs(p.y - e.y) < 60) { e.state = 'wind'; e.t = 0; e.hit = false; }
       break; }
@@ -414,6 +469,7 @@ function updateEnemy(e, dt) {
       if (e.t > 0.4) { e.state = 'walk'; e.t = 0; e.cd = rnd(0.5, 1.1); }
       break;
   }
+  enemyPhysics(e, dt); // caerse de las plataformas
   if (e.x < G.cam.x - 200) e.dead = true; // se quedó atrás
 }
 
@@ -503,7 +559,7 @@ function vecnaPose(e) {
     case 'idle': return Math.abs(G.p.x - e.x) < 250 || Math.abs(G.p.x - e.x) > 430 ? ['walk', Math.floor(e.animT * 6) % 5] : ['idle', Math.floor(e.animT * 4) % 4];
     case 'cast': case 'bind': case 'spike': return ['cast', Math.min(3, Math.floor(t / 0.24))];
     case 'tend': return ['tend', Math.min(3, Math.floor(t / 0.28))];
-    case 'phase': return ['phase', Math.min(3, Math.floor(t / 0.48))];
+    case 'phase': return ['phase', Math.min(2, Math.floor(t / 0.6))];
     case 'die': return ['die', Math.min(4, Math.floor(e.dying / 0.6))];
   }
   return ['idle', 0];
@@ -548,6 +604,13 @@ function updatePlay(dt) {
 
   // enemigos
   for (const e of G.enemies) updateEnemy(e, dt);
+  // los enemigos no se apilan: se separan entre sí
+  for (let i = 0; i < G.enemies.length; i++) for (let j = i + 1; j < G.enemies.length; j++) {
+    const a = G.enemies[i], b = G.enemies[j];
+    if (!a.grounded || !b.grounded || a.dying || b.dying || a.type === 'vecna' || b.type === 'vecna' || Math.abs(a.y - b.y) > 20) continue;
+    const min = (a.w + b.w) * 0.36, d = b.x - a.x;
+    if (Math.abs(d) < min) { const push = (min - Math.abs(d)) * 0.5 * Math.min(1, dt * 10) * (d >= 0 ? 1 : -1); a.x -= push; b.x += push; }
+  }
   G.enemies = G.enemies.filter(e => !e.dead);
   if (G.bossSpawned && !G.bossQueue.length && !G.enemies.some(e => e.boss) && G.state === 'play') {
     G.state = 'clear'; G.clearT = 0; Snd.pick();
@@ -608,19 +671,22 @@ function updatePlay(dt) {
   // granadas
   for (const g of G.gren) {
     g.t += dt; g.vy += 1100 * dt; g.x += g.vx * dt; g.y += g.vy * dt; g.spin += dt * 12;
+    if (Math.random() < 0.75) G.parts.push({ x: g.x, y: g.y, vx: rnd(-15, 15), vy: rnd(-25, -5), life: 0.45, max: 0.45, color: '#9a9a9a', g: 0, size: 0, smoke: true, r: 2.5, gr: 8 });
+    if (Math.random() < 0.6) G.parts.push({ x: g.x + rnd(-4, 4), y: g.y - 12, vx: rnd(-50, 50), vy: rnd(-110, -30), life: 0.28, max: 0.28, color: '#ffb23a', g: 300, size: 2.4 });
     let boom = g.y >= GROUND || g.t > 1.6;
     for (const e of G.enemies) if (!e.dead && !e.dying && ovl({ x: g.x - 8, y: g.y - 8, w: 16, h: 16 }, ebox(e))) boom = true;
     if (boom) {
       g.dead = true; G.rings.push({ x: g.x, y: Math.min(g.y, GROUND), t: 0 });
       burst(g.x, Math.min(g.y, GROUND) - 10, 30, '#ff9a2a', 300, 0.7); burst(g.x, Math.min(g.y, GROUND) - 10, 14, '#fff3a0', 200, 0.4);
-      Snd.boom(); G.shake = Math.max(G.shake, 10);
+      Snd.boom(); G.shake = Math.max(G.shake, 10); G.flash = Math.max(G.flash, 0.06);
+      for (let i = 0; i < 16; i++) { const l = rnd(0.7, 1.4); G.parts.push({ x: g.x + rnd(-28, 28), y: Math.min(g.y, GROUND) - rnd(0, 30), vx: rnd(-45, 45), vy: rnd(-120, -30), life: l, max: l, color: i % 3 ? '#4d3f3f' : '#8d7d72', g: -25, size: 0, smoke: true, r: 10, gr: 32 }); }
       for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - g.x, (e.y - e.h / 2) - g.y) < 110 + e.w / 2) damageEnemy(e, 6, Math.sign(e.x - g.x) || 1);
       for (const q of G.eproj) if (Math.hypot(q.x - g.x, q.y - g.y) < 120) q.dead = true;
     }
   }
   G.gren = G.gren.filter(g => !g.dead);
   for (const r of G.rings) r.t += dt;
-  G.rings = G.rings.filter(r => r.t < 0.45);
+  G.rings = G.rings.filter(r => r.t < 0.6);
 
   // items
   for (const it of G.items) {
@@ -692,6 +758,25 @@ function drawPlatform(pl, camX) {
   }
 }
 
+function drawGrenade(c, sc = 1) {
+  c.save(); c.scale(sc, sc);
+  const g = c.createRadialGradient(-3.5, -3, 1, 0, 1, 13);
+  g.addColorStop(0, '#9dbd62'); g.addColorStop(0.55, '#526f2e'); g.addColorStop(1, '#1d2e11');
+  c.fillStyle = g; c.strokeStyle = '#0b1406'; c.lineWidth = 1.7;
+  c.beginPath(); c.ellipse(0, 2, 9.5, 11.5, 0, 0, 7); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(8,18,4,.7)'; c.lineWidth = 1.2; c.beginPath();
+  c.moveTo(-9, 2); c.lineTo(9, 2); c.moveTo(0, -9); c.lineTo(0, 13);
+  c.moveTo(-6.5, -4.5); c.quadraticCurveTo(0, -1, 6.5, -4.5);
+  c.moveTo(-6.5, 8.5); c.quadraticCurveTo(0, 5, 6.5, 8.5);
+  c.moveTo(-5, -7); c.lineTo(-5, 11); c.moveTo(5, -7); c.lineTo(5, 11); c.stroke();
+  c.fillStyle = 'rgba(255,255,255,.4)'; c.beginPath(); c.ellipse(-4.5, -2.5, 2, 3.8, -0.4, 0, 7); c.fill();
+  c.fillStyle = '#8c929a'; c.strokeStyle = '#2a2d31'; c.lineWidth = 1.4; c.fillRect(-4.5, -14, 9, 5.5); c.strokeRect(-4.5, -14, 9, 5.5);
+  c.strokeStyle = '#c3c9d1'; c.lineWidth = 2.4; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(4, -13); c.quadraticCurveTo(14, -11, 11.5, 3); c.stroke();
+  c.strokeStyle = '#e6b53a'; c.lineWidth = 1.9; c.beginPath(); c.arc(-8.5, -12.5, 4, 0, 7); c.stroke();
+  c.restore();
+}
+
 function drawItem(it, camX) {
   const x = Math.round(it.x - camX), y = Math.round(it.y + Math.sin(it.t * 3) * 4);
   ctx.save(); ctx.translate(x, y);
@@ -702,9 +787,8 @@ function drawItem(it, camX) {
     for (let i = -4; i <= 4; i += 8) { ctx.beginPath(); ctx.moveTo(i, -12); ctx.lineTo(i, 12); ctx.moveTo(-12, i); ctx.lineTo(12, i); ctx.stroke(); }
     ctx.fillStyle = '#fff'; ctx.fillRect(-3, -3, 6, 6);
   } else if (it.type === 'gren') {
-    ctx.fillStyle = '#2d3a2a'; ctx.beginPath(); ctx.arc(0, 2, 11, 0, 7); ctx.fill();
-    ctx.shadowBlur = 0; ctx.fillStyle = '#aaa'; ctx.fillRect(-4, -12, 8, 6);
-    ctx.fillStyle = '#ff6a2a'; ctx.fillRect(2, -16, 3, 5);
+    drawGrenade(ctx, 1.3);
+    ctx.shadowBlur = 0; ctx.fillStyle = '#ffd34d'; ctx.font = `8px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('+3', 0, 26);
   } else {
     ctx.fillStyle = '#1b2a6b'; ctx.fillRect(-13, -13, 26, 26);
     ctx.shadowBlur = 0; ctx.strokeStyle = '#ffd34d'; ctx.lineWidth = 2; ctx.strokeRect(-13, -13, 26, 26);
@@ -784,6 +868,20 @@ function drawEnemy(e, camX) {
     const [a, f] = vecnaPose(e);
     ctx.save(); ctx.shadowColor = e.state === 'phase' || e.phase2 ? 'rgba(255,40,60,.95)' : 'rgba(255,90,90,.75)'; ctx.shadowBlur = e.phase2 ? 22 : 14;
     const fade = e.state === 'die' ? Math.max(0, 1 - Math.max(0, e.dying - 2.2) / 0.8) : 1;
+    if (e.state === 'phase') { // aura y tentáculos de la transformación
+      const k = Math.min(1, e.t / 1.5);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(x, e.y - 85);
+      const g = ctx.createRadialGradient(0, 0, 10, 0, 0, 40 + 120 * k);
+      g.addColorStop(0, `rgba(255,70,70,${0.6 * k})`); g.addColorStop(1, 'rgba(120,0,20,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 40 + 120 * k, 0, 7); ctx.fill();
+      ctx.strokeStyle = `rgba(255,60,80,${0.8 * k})`; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      for (let i = 0; i < 8; i++) {
+        const a = i * 0.785 + e.t * 1.5, r = 30 + 90 * k;
+        ctx.beginPath(); ctx.moveTo(Math.cos(a) * 24, Math.sin(a) * 40);
+        ctx.quadraticCurveTo(Math.cos(a + 0.5) * r * 0.7, Math.sin(a + 0.5) * r, Math.cos(a) * r * 1.1, Math.sin(a) * r * 1.2); ctx.stroke();
+      }
+      ctx.restore();
+    }
     sprite('vecna', a, f, x, e.y, e.sc, flip, blink * fade);
     ctx.restore();
     return;
@@ -802,7 +900,8 @@ function drawEnemy(e, camX) {
     ctx.restore(); return;
   }
   // sombra
-  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, e.y + 2, 30 * e.sc / 1.1, 6, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, (e.grounded ? e.y : GROUND) + 2, 30 * e.sc / 1.1, 6, 0, 0, 7); ctx.fill();
+  if (!e.grounded) { anim = 'attack'; f = e.vy < 0 ? 1 : 2; }
   sprite('demogorgon', anim, f, x, e.y, e.sc, flip, blink);
 }
 
@@ -839,7 +938,7 @@ function drawHUD() {
     ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(84 + i * 16, 42, 13, 10);
   }
   text(`VIDAS x${Math.max(0, G.lives)}`, 84, 70, 9, '#fff');
-  text(`BOMBAS ${p.gren}`, 190, 70, 9, '#ffb060');
+  ctx.save(); ctx.translate(200, 62); drawGrenade(ctx, 0.62); ctx.restore(); text(`x${p.gren}`, 214, 70, 10, '#ffb060');
   text(`ARMA ${'*'.repeat(p.wpn)}`, 190, 34, 9, '#9fe0ff');
   text('SCORE', W - 20, 28, 10, '#ff8080', 'right');
   text(String(G.score).padStart(7, '0'), W - 20, 52, 18, '#fff', 'right');
@@ -861,7 +960,7 @@ function drawHUD() {
 function drawGame() {
   const camX = G.cam.x, p = G.p;
   ctx.save();
-  if (G.shake > 0) ctx.translate(rnd(-G.shake, G.shake) * 0.5, rnd(-G.shake, G.shake) * 0.5);
+  if (G.shake > 0 && SET.shake) ctx.translate(rnd(-G.shake, G.shake) * 0.5, rnd(-G.shake, G.shake) * 0.5);
   drawBackground(camX, G.t);
   for (const pl of G.plats) drawPlatform(pl, camX);
   for (const it of G.items) drawItem(it, camX);
@@ -869,20 +968,29 @@ function drawGame() {
   for (const e of G.enemies) drawEnemy(e, camX);
   drawPlayer(p, camX);
   for (const g of G.gren) {
-    ctx.save(); ctx.translate(g.x - camX, g.y); ctx.rotate(g.spin); ctx.fillStyle = '#2d3a2a'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, 7); ctx.fill();
-    ctx.fillStyle = '#ff6a2a'; ctx.fillRect(-2, -10, 4, 5); ctx.restore();
+    ctx.save(); ctx.translate(g.x - camX, g.y); ctx.rotate(g.spin);
+    ctx.shadowColor = 'rgba(255,150,40,.7)'; ctx.shadowBlur = 8; drawGrenade(ctx, 0.95); ctx.restore();
   }
   for (const b of G.bullets) drawBullet(b, camX);
   for (const q of G.eproj) drawEProj(q, camX);
-  for (const r of G.rings) {
-    const k = r.t / 0.45; ctx.strokeStyle = `rgba(255,${180 - 120 * k | 0},60,${1 - k})`; ctx.lineWidth = 8 * (1 - k) + 2;
-    ctx.beginPath(); ctx.arc(r.x - camX, r.y - 10, 20 + 100 * k, 0, 7); ctx.stroke();
-    ctx.fillStyle = `rgba(255,220,120,${0.5 * (1 - k)})`; ctx.beginPath(); ctx.arc(r.x - camX, r.y - 10, 60 * (1 - k * 0.5), 0, 7); ctx.fill();
-  }
   for (const q of G.parts) {
-    ctx.globalAlpha = Math.max(0, q.life / q.max); ctx.fillStyle = q.color; ctx.fillRect(q.x - camX - q.size / 2, q.y - q.size / 2, q.size, q.size);
+    const a = Math.max(0, q.life / q.max);
+    if (q.smoke) { ctx.globalAlpha = a * 0.5; ctx.fillStyle = q.color; ctx.beginPath(); ctx.arc(q.x - camX, q.y, q.r + (1 - a) * q.gr, 0, 7); ctx.fill(); }
+    else { ctx.globalAlpha = a; ctx.fillStyle = q.color; ctx.fillRect(q.x - camX - q.size / 2, q.y - q.size / 2, q.size, q.size); }
   }
   ctx.globalAlpha = 1;
+  for (const r of G.rings) { // explosión: destello + bola de fuego + onda expansiva
+    const k = r.t / 0.6, x = r.x - camX, y = r.y - 12, e = 1 - (1 - k) * (1 - k);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const R = 40 + 130 * e, fg = ctx.createRadialGradient(x, y, 4, x, y, R);
+    fg.addColorStop(0, `rgba(255,250,200,${1 - k})`); fg.addColorStop(0.35, `rgba(255,170,40,${0.9 * (1 - k)})`);
+    fg.addColorStop(0.75, `rgba(210,50,10,${0.5 * (1 - k)})`); fg.addColorStop(1, 'rgba(120,10,0,0)');
+    ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(x, y, R, 0, 7); ctx.fill();
+    if (k < 0.25) { ctx.fillStyle = `rgba(255,255,255,${0.9 * (1 - k * 4)})`; ctx.beginPath(); ctx.arc(x, y, 38 * (1 - k * 2), 0, 7); ctx.fill(); }
+    ctx.restore();
+    ctx.strokeStyle = `rgba(255,235,200,${0.8 * (1 - k)})`; ctx.lineWidth = 5 * (1 - k) + 1;
+    ctx.beginPath(); ctx.ellipse(x, y + 12, 20 + 150 * e, 6 + 22 * e, 0, 0, 7); ctx.stroke();
+  }
   ctx.restore();
   ctx.drawImage(vign, 0, 0);
   if (G.flash > 0) { ctx.fillStyle = `rgba(255,40,40,${Math.min(0.4, G.flash)})`; ctx.fillRect(0, 0, W, H); }
@@ -902,12 +1010,7 @@ function drawGame() {
     ctx.globalAlpha = 1;
   }
   if (G.noEnemyT > 1.2 && Math.floor(G.t * 3) % 2 === 0) text('GO  >>>', W - 40, 150, 22, '#ffd34d', 'right');
-  if (G.state === 'pause') {
-    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, W, H);
-    text('PAUSA', W / 2, 250, 30, '#fff', 'center');
-    text('P / ESC para continuar  -  M: sonido', W / 2, 290, 11, '#ccc', 'center');
   }
-}
 
 /* ----------------------------------------------------------------- screens */
 function drawTitle(t) {
@@ -922,13 +1025,12 @@ function drawTitle(t) {
   const cs = ['will', 'eleven', 'mike', 'dustin', 'steve'];
   cs.forEach((id, i) => {
     const sc = id === 'will' ? 1.1 : 1;
-    sprite(id, 'walk', Math.floor(t * 8 + i) % ATLAS[id].anims.walk.n, 150 + i * 70, 450, sc);
+    sprite(id, 'walk', Math.floor(t * 8 + i) % ATLAS[id].anims.walk.n, 70 + i * 62, 450, sc);
   });
   sprite('demogorgon', 'walk', Math.floor(t * 7) % 4, 760, 450, 1.2, true);
   sprite('vecna', 'idle', Math.floor(t * 4) % 4, 860, 450, 1.5, true);
-  if (Math.floor(t * 2) % 2 === 0) text('PULSA ENTER', W / 2, 310, 18, '#ffd34d', 'center');
-  text('FLECHAS/AWSD mover   X/K/ESPACIO saltar   Z/J disparar   C/L bomba', W / 2, 492, 9, '#ddd', 'center');
-  text('ARRIBA apuntar arriba   ABAJO agacharse (en el aire: disparar abajo)   P pausa   M sonido', W / 2, 512, 8, '#aaa', 'center');
+  { const kn = a => keyName(K[a][0]); text(`MOVER ${kn('left')} / ${kn('right')}   SALTAR ${kn('jump')}   DISPARAR ${kn('fire')}   BOMBA ${kn('gren')}`, W / 2, 492, 9, '#ddd', 'center'); }
+  text('P / ESC pausa y ajustes   M sonido   F pantalla completa   (las teclas se cambian en AJUSTES)', W / 2, 512, 8, '#aaa', 'center');
 }
 
 function drawSelect(t) {
@@ -961,31 +1063,126 @@ function drawEnd(title, color, sub) {
   if (Math.floor(G.t * 2) % 2 === 0) text('PULSA ENTER', W / 2, 400, 14, '#fff', 'center');
 }
 
+/* -------------------------------------------------------------------- menús */
+const M = { screen: 'title', idx: 0, backS: 'title', backC: 'title', capture: null };
+function assignKey(action, code) {
+  const old = K[action][0];
+  for (const a in DEFAULT_KEYS) if (a !== action && K[a][0] === code) K[a] = [old]; // intercambia si estaba en uso
+  K[action] = [code];
+  SET.keys = {}; for (const a in DEFAULT_KEYS) SET.keys[a] = K[a][0];
+  saveSet();
+}
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function openMenu(screen) { M.screen = screen; M.idx = 0; }
+function toggleFS() { try { if (document.fullscreenElement) document.exitFullscreen(); else canvas.requestFullscreen(); } catch (e) { /* ignorar */ } }
+function resumeGame() { G.state = 'play'; }
+function goSettings(from) { M.backS = from; openMenu('settings'); }
+function goControls(from) { M.backC = from; openMenu('controls'); }
+
+function menuItems() {
+  switch (M.screen) {
+    case 'title': return [
+      { label: 'JUGAR', act: () => { G.state = 'select'; } },
+      { label: 'AJUSTES', act: () => goSettings('title') },
+      { label: 'CONTROLES', act: () => goControls('title') }];
+    case 'pause': return [
+      { label: 'REANUDAR', act: resumeGame },
+      { label: 'AJUSTES', act: () => goSettings('pause') },
+      { label: 'CONTROLES', act: () => goControls('pause') },
+      { label: 'REINICIAR ACTO', act: () => startStage(G.stage) },
+      { label: 'SALIR AL TITULO', act: () => { G.state = 'title'; Snd.setFast(false); openMenu('title'); } }];
+    case 'settings': return [
+      { label: 'MUSICA', value: () => SET.music, adj: d => { SET.music = clamp(SET.music + d, 0, 10); Snd.applyVol(); saveSet(); } },
+      { label: 'EFECTOS', value: () => SET.sfx, adj: d => { SET.sfx = clamp(SET.sfx + d, 0, 10); Snd.applyVol(); saveSet(); Snd.shoot(); } },
+      { label: 'SONIDO', value: () => (Snd.muted ? 'NO' : 'SI'), act: () => Snd.toggleMute(), adj: () => Snd.toggleMute() },
+      { label: 'TEMBLOR DE PANTALLA', value: () => (SET.shake ? 'SI' : 'NO'), act: () => { SET.shake = !SET.shake; saveSet(); }, adj: () => { SET.shake = !SET.shake; saveSet(); } },
+      { label: 'PANTALLA COMPLETA', value: () => (document.fullscreenElement ? 'SI' : 'NO'), act: toggleFS, adj: toggleFS },
+      { label: 'CONTROLES', act: () => goControls('settings') },
+      { label: 'VOLVER', act: () => openMenu(M.backS) }];
+    case 'controls': return [
+      ...ACTIONS.map(([a, name]) => ({ label: name, value: () => (M.capture === a ? 'PULSA UNA TECLA...' : keyName(K[a][0])), act: () => { M.capture = a; } })),
+      { label: 'RESTABLECER', act: () => { SET.keys = {}; applyKeys(); saveSet(); } },
+      { label: 'VOLVER', act: () => openMenu(M.backC) }];
+  }
+  return [];
+}
+
+function menuInput() {
+  const items = menuItems();
+  if (!items.length) return;
+  if (M.capture) return;
+  if (tap(...NAV.up)) { M.idx = (M.idx + items.length - 1) % items.length; Snd.ok(); }
+  if (tap(...NAV.down)) { M.idx = (M.idx + 1) % items.length; Snd.ok(); }
+  const it = items[M.idx];
+  if (tap(...NAV.left) && it.adj) { it.adj(-1); Snd.ok(); }
+  if (tap(...NAV.right) && it.adj) { it.adj(1); Snd.ok(); }
+  if (tap('Enter', 'Space', 'KeyZ') && it.act) { Snd.ok(); it.act(); return; }
+  if (tap('Escape', 'KeyP')) {
+    if (M.screen === 'settings') openMenu(M.backS);
+    else if (M.screen === 'controls') openMenu(M.backC);
+    else if (M.screen === 'pause') resumeGame();
+  }
+}
+
+function drawPanel(title, items, rowH = 38) {
+  const pw = 640, ph = 100 + items.length * rowH, px = (W - pw) / 2, py = (H - ph) / 2;
+  ctx.fillStyle = 'rgba(8,0,12,.9)'; ctx.fillRect(px, py, pw, ph);
+  ctx.strokeStyle = '#a01428'; ctx.lineWidth = 3; ctx.strokeRect(px, py, pw, ph);
+  text(title, W / 2, py + 46, 20, '#ff3b3b', 'center');
+  items.forEach((it, i) => {
+    const y = py + 96 + i * rowH, sel = i === M.idx;
+    if (sel) { ctx.fillStyle = 'rgba(170,25,45,.5)'; ctx.fillRect(px + 14, y - 22, pw - 28, 31); }
+    text((sel ? '> ' : '  ') + it.label, px + 32, y, 12, sel ? '#ffd34d' : '#fff', 'left', null);
+    if (it.value) {
+      const v = it.value();
+      if (typeof v === 'number') {
+        for (let k = 0; k < 10; k++) { ctx.fillStyle = k < v ? (sel ? '#ffd34d' : '#e01830') : '#3a1018'; ctx.fillRect(px + pw - 32 - 10 * 18 + k * 18, y - 14, 14, 16); }
+      } else text(v, px + pw - 32, y, 12, sel ? '#ffd34d' : '#9fe0ff', 'right', null);
+    }
+  });
+  text(M.capture ? 'PULSA LA NUEVA TECLA   (ESC cancela)' : 'ARRIBA/ABAJO elegir   IZQ/DER ajustar   ENTER aceptar   ESC volver', W / 2, py + ph - 14, 8, '#aaa', 'center', null);
+}
+
+function drawMenuScreen() {
+  if (G.state === 'pause') { ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(0, 0, W, H); }
+  if (M.screen === 'settings') drawPanel('AJUSTES', menuItems(), 40);
+  else if (M.screen === 'controls') drawPanel('CONTROLES', menuItems(), 34);
+  else if (M.screen === 'pause') drawPanel('PAUSA', menuItems(), 42);
+}
+
+function drawTitleMenu() {
+  menuItems().forEach((it, i) => {
+    const y = 305 + i * 36, sel = i === M.idx;
+    text((sel ? '> ' : '') + it.label + (sel ? ' <' : ''), W / 2, y, 18, sel ? '#ffd34d' : '#fff', 'center');
+  });
+}
+
 /* -------------------------------------------------------------------- loop */
 let last = performance.now(), tAcc = 0;
 function frame(now) {
   const dt = Math.min(0.033, (now - last) / 1000); last = now; tAcc += dt;
   ctx.clearRect(0, 0, W, H);
   if (tap('KeyM')) Snd.toggleMute();
+  if (tap('KeyF')) toggleFS();
   switch (G.state) {
     case 'loading': text('CARGANDO...', W / 2, H / 2, 16, '#fff', 'center'); break;
     case 'title':
       drawTitle(tAcc);
-      if (tap(...K.ok)) { Snd.ok(); G.state = 'select'; }
+      if (M.screen === 'title') drawTitleMenu(); else drawMenuScreen();
+      menuInput();
       break;
     case 'select':
       drawSelect(tAcc);
-      if (tap(...K.left)) { G.sel = (G.sel + 4) % 5; Snd.ok(); }
-      if (tap(...K.right)) { G.sel = (G.sel + 1) % 5; Snd.ok(); }
+      if (tap(...NAV.left)) { G.sel = (G.sel + 4) % 5; Snd.ok(); }
+      if (tap(...NAV.right)) { G.sel = (G.sel + 1) % 5; Snd.ok(); }
       if (tap('Enter', 'Space', 'KeyZ')) { G.charId = ORDER[G.sel]; Snd.pick(); newGame(); }
-      if (tap('Escape')) G.state = 'title';
+      if (tap('Escape')) { G.state = 'title'; openMenu('title'); }
       break;
     case 'play':
-      if (tap('KeyP', 'Escape')) { G.state = 'pause'; drawGame(); break; }
+      if (tap('KeyP', 'Escape')) { G.state = 'pause'; openMenu('pause'); drawGame(); drawMenuScreen(); break; }
       updatePlay(dt); drawGame(); break;
     case 'pause':
-      drawGame();
-      if (tap('KeyP', 'Escape', 'Enter')) G.state = 'play';
+      drawGame(); drawMenuScreen(); menuInput();
       break;
     case 'clear': {
       G.clearT += dt; G.t += dt;
@@ -996,7 +1193,7 @@ function frame(now) {
       if (G.clearT > 1.2) {
         drawEnd(last ? '¡VECNA HA CAIDO!' : 'STAGE CLEAR', '#7dff7d', last ? 'EL MUNDO DEL REVES ESTA A SALVO... POR AHORA' : STAGES[G.stage].name + ' COMPLETADO');
         if (tap('Enter', 'Space')) {
-          if (last) { G.state = 'title'; Snd.setFast(false); }
+          if (last) { G.state = 'title'; openMenu('title'); Snd.setFast(false); }
           else { const hp = G.p; startStage(G.stage + 1); G.p.hp = G.p.maxHp; }
         }
       }
@@ -1019,10 +1216,12 @@ loadAll().then(() => {
     if (q.get('boss')) { G.cam.x = G.cam.max; G.p.x = G.cam.x + 200; }
     else if (q.get('at')) { G.cam.x = +q.get('at'); G.p.x = G.cam.x + 300; }
     G.banner = q.get('boss') || q.get('at') ? 0 : G.banner;
+    if (q.get('bomb')) { G.p.gren = 5; throwGrenade(G.p); }
     for (let i = 0; i < (+q.get('ff') || 0) * 60; i++) updatePlay(1 / 60);
+    if (q.get('menu')) { G.state = 'pause'; openMenu(q.get('menu')); }
   }
 });
 requestAnimationFrame(frame);
 canvas.focus();
-window.__G = G; // depuración
+window.__G = G; window.__M = M; window.__K = K; window.__SET = SET; // depuración
 })();

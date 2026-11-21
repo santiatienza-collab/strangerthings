@@ -43,7 +43,7 @@ def frames_in(img, box, bg, thr=26, gap=7, minw=14, expect=None):
         runs = [(cuts[i], cuts[i+1]-1) for i in range(expect)]
     return crop, runs
 
-def cut(crop, run, bg, thr=26):
+def cut(crop, run, bg, thr=26, solid=False, boost=1.0):
     """devuelve RGBA recortado, quitando fondo por flood fill desde el borde"""
     a, b = run
     f = crop.crop((max(a-2, 0), 0, min(b+3, crop.width), crop.height)).convert('RGB')
@@ -61,14 +61,32 @@ def cut(crop, run, bg, thr=26):
         if dist(px[x, y], bg) > thr: continue
         seen[y][x] = True
         stack += [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
+    if solid:
+        # silueta cerrada: el cuerpo oscuro no se confunde con el fondo del sheet
+        fg = Image.new('L', (w, h))
+        fp = fg.load()
+        for y in range(h):
+            for x in range(w):
+                fp[x, y] = 255 if dist(px[x, y], bg) > 14 else 0
+        cp = fg.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(5)).load()
+        seen = [[False]*w for _ in range(h)]
+        stack = [(x, 0) for x in range(w)] + [(x, h-1) for x in range(w)] + [(0, y) for y in range(h)] + [(w-1, y) for y in range(h)]
+        while stack:
+            x, y = stack.pop()
+            if x < 0 or y < 0 or x >= w or y >= h or seen[y][x] or cp[x, y]: continue
+            seen[y][x] = True
+            stack += [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
     out = Image.new('RGBA', (w, h))
     op = out.load()
     for y in range(h):
         for x in range(w):
-            if seen[y][x] or dist(px[x, y], bg) < 12:
+            if seen[y][x] or (not solid and dist(px[x, y], bg) < 12):
                 op[x, y] = (0, 0, 0, 0)
             else:
-                op[x, y] = px[x, y] + (255,)
+                r, g, b = px[x, y]
+                if boost != 1.0:
+                    r, g, b = min(255, int(r*boost)+6), min(255, int(g*boost)+3), min(255, int(b*boost)+3)
+                op[x, y] = (r, g, b, 255)
     # quita lineas finas del panel y motas sueltas
     seen2 = [[False]*w for _ in range(h)]
     for y in range(h):
@@ -86,9 +104,12 @@ def cut(crop, run, bg, thr=26):
             if len(comp) < 30 or (min(cw_, ch_) <= 4 and max(cw_, ch_) >= 14):
                 for cx, cy in comp: op[cx, cy] = (0, 0, 0, 0)
     bb = out.getbbox()
-    return out.crop(bb) if bb else None
+    if not bb: return None
+    if bb[1] <= 0 or bb[3] >= h:
+        print('   (aviso) frame toca el borde vertical del recorte', 'arriba' if bb[1] <= 0 else 'abajo')
+    return out.crop(bb)
 
-def build_char(name, sheet, bg, rows, thr=26, blank=()):
+def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0):
     """rows: {anim: (box, expected_count, anchor)}  anchor: 'c' centro | ('l', offset)"""
     img = Image.open(os.path.join(SRC, sheet)).convert('RGB')
     from PIL import ImageDraw
@@ -100,7 +121,8 @@ def build_char(name, sheet, bg, rows, thr=26, blank=()):
         if n and len(runs) != n:
             print(f'  !! {name}.{anim}: esperaba {n} frames, detecte {len(runs)} {runs}')
         for i, r in enumerate(runs):
-            fr = cut(crop, r, bg, thr)
+            if i == 0: print(f'  [{name}.{anim}]')
+            fr = cut(crop, r, bg, thr, solid, boost)
             if fr is None: continue
             ax = fr.width/2 if anchor == 'c' else anchor[1]
             items.append((anim, i, fr, ax))
@@ -131,11 +153,11 @@ atlas['will'] = build_char('will', 'IMG-20261121-WA0024.jpg', DARK, {
     'other': ((1025, 355, 1500, 470), 4, 'c'),
 })
 atlas['demogorgon'] = build_char('demogorgon', 'IMG-20261121-WA0024.jpg', DARK, {
-    'idle':   ((1050, 528, 1500, 630), 4, 'c'),
-    'walk':   ((1040, 650, 1500, 735), 4, 'c'),
-    'attack': ((1045, 738, 1510, 835), 4, ('l', 45)),
-    'roar':   ((1050, 840, 1500, 960), 4, 'c'),
-})
+    'idle':   ((1050, 514, 1500, 632), 4, 'c'),
+    'walk':   ((1040, 632, 1500, 738), 4, 'c'),
+    'attack': ((1045, 728, 1510, 838), 4, ('l', 45)),
+    'roar':   ((1050, 836, 1500, 962), 4, 'c'),
+}, blank=[(1040, 508, 1510, 520)])
 # --- Eleven (WA0025)
 E = 'IMG-20261121-WA0025.jpg'
 atlas['eleven'] = build_char('eleven', E, DARK, {
@@ -173,13 +195,13 @@ M = 'Sin título.png'
 atlas['vecna'] = build_char('vecna', M, (20, 18, 24), {
     'idle':   ((30, 330, 360, 445), 4, 'c'),
     'walk':   ((385, 330, 790, 445), 5, 'c'),
-    'cast':   ((805, 330, 1195, 445), 4, ('l', 45)),
+    'cast':   ((805, 338, 1195, 448), 4, ('l', 45)),
     'tend':   ((800, 470, 1265, 585), 4, ('l', 45)),
-    'hurt':   ((15, 615, 375, 750), 4, 'c'),
+    'hurt':   ((15, 604, 352, 750), 4, 'c'),
     'phase':  ((380, 625, 800, 750), 4, 'c'),
     'die':    ((815, 615, 1265, 750), 5, 'c'),
-}, thr=22, blank=[(30,306,142,338),(392,306,488,338),(812,306,975,338),
-                      (800,458,965,490),(28,600,102,632),(388,600,598,632),(828,600,940,632)])
+}, thr=22, blank=[(800,447,1200,465),(30,306,142,338),(392,306,488,338),(812,306,975,338),
+                      (800,458,965,490),(28,598,100,622),(388,600,598,632),(828,600,940,632)], solid=True, boost=1.45)
 
 with open(JS, 'w') as f:
     f.write('window.ATLAS = ' + json.dumps(atlas, indent=1) + ';\n')

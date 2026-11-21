@@ -4,15 +4,20 @@ Shoot & run de plataformas al estilo *Metal Slug*, ambientado en el Mundo del Re
 Hecho con HTML5 Canvas, sin dependencias: abre `index.html` o publícalo en GitHub Pages.
 
 ## Controles
-| Acción | Teclas |
+Por defecto (todas se pueden cambiar en **AJUSTES → CONTROLES**; se guardan en el navegador):
+
+| Acción | Tecla |
 |---|---|
-| Mover | Flechas / A D |
-| Saltar | X / K / Espacio (abajo + salto: bajar de plataforma) |
-| Disparar | Z / J / Ctrl |
-| Bomba | C / L |
-| Apuntar arriba | Flecha arriba / W |
-| Agacharse | Flecha abajo / S (en el aire: disparar hacia abajo) |
-| Pausa / Sonido | P o Esc / M |
+| Mover | Flecha izquierda / derecha |
+| Apuntar arriba | Flecha arriba |
+| Agacharse | Flecha abajo (en el aire: disparar hacia abajo; abajo + salto: bajar de plataforma) |
+| Saltar | X |
+| Disparar | Z |
+| Bomba | C |
+| Pausa / menú | P o Esc |
+| Sonido / Pantalla completa | M / F |
+
+El menú de pausa incluye ajustes de música, efectos, temblor de pantalla y pantalla completa.
 
 ## Personajes
 Will (rifle), Eleven (telequinesis perforante), Mike (tirachinas rápido), Dustin (bengalas x3), Steve (bate con clavos, cuerpo a cuerpo).

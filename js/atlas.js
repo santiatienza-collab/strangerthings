@@ -147,8 +147,8 @@ window.ATLAS = {
  },
  "vecna": {
   "img": "assets/vecna.png",
-  "cw": 156,
-  "ch": 122,
+  "cw": 160,
+  "ch": 128,
   "anims": {
    "idle": {
     "row": 0,
