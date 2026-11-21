@@ -109,7 +109,7 @@ def cut(crop, run, bg, thr=26, solid=False, boost=1.0):
         print('   (aviso) frame toca el borde vertical del recorte', 'arriba' if bb[1] <= 0 else 'abajo')
     return out.crop(bb)
 
-def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0):
+def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, idle_h=None):
     """rows: {anim: (box, expected_count, anchor)}  anchor: 'c' centro | ('l', offset)"""
     img = Image.open(os.path.join(SRC, sheet)).convert('RGB')
     from PIL import ImageDraw
@@ -126,6 +126,11 @@ def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0):
             if fr is None: continue
             ax = fr.width/2 if anchor == 'c' else anchor[1]
             items.append((anim, i, fr, ax))
+    if idle_h:  # normaliza la escala para que el idle mida idle_h px (mismo tamaño que en el juego)
+        h0 = next(fr.height for a, i, fr, _ in items if a == 'idle' and i == 0)
+        k = idle_h / h0
+        items = [(a, i, fr.resize((max(1, round(fr.width*k)), max(1, round(fr.height*k))), Image.LANCZOS), ax*k) for a, i, fr, ax in items]
+        print(f'  escala {name}: x{k:.3f}')
     half = max(max(ax, fr.width-ax) for _, _, fr, ax in items)
     cw = int(half*2)+2
     ch = max(fr.height for _, _, fr, _ in items)+2
@@ -145,19 +150,21 @@ def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0):
 DARK = (22, 18, 30)
 atlas = {}
 
-# --- Will / Demogorgon (WA0024)
-atlas['will'] = build_char('will', 'IMG-20261121-WA0024.jpg', DARK, {
-    'idle':  ((1025, 30, 1500, 130), 4, 'c'),
-    'walk':  ((1025, 132, 1500, 230), 5, 'c'),
-    'shoot': ((1025, 232, 1500, 340), 4, ('l', 38)),
-    'other': ((1025, 355, 1500, 470), 4, 'c'),
-})
-atlas['demogorgon'] = build_char('demogorgon', 'IMG-20261121-WA0024.jpg', DARK, {
-    'idle':   ((1050, 514, 1500, 632), 4, 'c'),
-    'walk':   ((1040, 632, 1500, 738), 4, 'c'),
-    'attack': ((1045, 728, 1510, 838), 4, ('l', 45)),
-    'roar':   ((1050, 836, 1500, 962), 4, 'c'),
-}, blank=[(1040, 508, 1510, 520)])
+# --- Will y Demogorgon: hojas nuevas (will.png / demogorgon.png)
+atlas['will'] = build_char('will', 'will.png', (21, 16, 24), {
+    'idle':  ((55, 538, 575, 690), 4, 'c'),
+    'walk':  ((635, 538, 1450, 690), 6, 'c'),
+    'shoot': ((40, 768, 712, 925), 5, ('l', 52)),
+    'other': ((735, 764, 1520, 925), 7, 'c'),
+}, idle_h=80, blank=[(40, 490, 215, 540), (625, 490, 790, 540), (40, 712, 250, 764), (745, 712, 975, 764)])
+atlas['demogorgon'] = build_char('demogorgon', 'demogorgon.png', (19, 18, 25), {
+    'idle':   ((45, 452, 595, 595), 4, 'c'),
+    'walk':   ((622, 452, 1490, 595), 6, 'c'),
+    'attack': ((38, 648, 795, 778), 5, ('l', 62)),
+    'roar':   ((828, 606, 1505, 778), 4, 'c'),
+    'hurt':   ((38, 828, 708, 978), 5, 'c'),
+    'die':    ((738, 834, 1515, 978), 5, 'c'),
+}, idle_h=92, blank=[(30, 405, 200, 463), (630, 405, 782, 463), (30, 598, 242, 647), (826, 598, 1006, 647), (28, 783, 216, 833), (740, 783, 845, 833)])
 # --- Eleven (WA0025)
 E = 'IMG-20261121-WA0025.jpg'
 atlas['eleven'] = build_char('eleven', E, DARK, {

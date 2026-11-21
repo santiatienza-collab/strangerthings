@@ -353,10 +353,10 @@ function updatePlayer(dt) {
 
 function playerPose(p) {
   const id = p.id, mv = Math.abs(p.vx) > 5;
-  if (p.dead) return id === 'steve' ? ['hurt', 3] : ['other', 3];
-  if (p.hurtT > 0) return id === 'steve' ? ['hurt', 0] : id === 'will' ? ['other', 2] : ['other', 1];
+  if (p.dead) return id === 'steve' ? ['hurt', 3] : ['other', id === 'will' ? 6 : 3];
+  if (p.hurtT > 0) return id === 'steve' ? ['hurt', 0] : id === 'will' ? ['other', 4] : ['other', 1];
   if (p.melee > 0) return ['attack', Math.min(4, Math.floor((1 - p.melee / 0.36) * 5))];
-  if (p.crouch) return ['other', 0];
+  if (p.crouch) return ['other', id === 'will' ? 1 : 0];
   if (p.shootT > 0) {
     const hot = p.shootT > 0.12;
     if (id === 'will') return ['shoot', hot ? 2 : 1];
@@ -390,6 +390,7 @@ function dropFrom(e) {
 function damageEnemy(e, d, dir = 1) {
   if (e.dead || e.dying || e.inv) return;
   e.hp -= d; e.flash = 0.1;
+  if (e.type !== 'brute' && e.type !== 'vecna') e.hurtT = 0.2;
   burst(e.x, e.y - e.h * 0.6, 4, '#c8c', 140, 0.3);
   Snd.hit();
   if (e.hp <= 0) {
@@ -420,10 +421,10 @@ function enemyPhysics(e, dt) {
 
 function updateEnemy(e, dt) {
   const p = G.p, T = ETYPES[e.type];
-  e.animT += dt; e.t += dt; if (e.flash > 0) e.flash -= dt; if (e.jumpCd > 0) e.jumpCd -= dt;
+  e.animT += dt; e.t += dt; if (e.flash > 0) e.flash -= dt; if (e.jumpCd > 0) e.jumpCd -= dt; if (e.hurtT > 0) e.hurtT -= dt;
   if (e.dying) {
     if (e.type === 'vecna') { updateVecna(e, dt); return; }
-    e.dying += dt; if (e.dying > 0.55) e.dead = true; return;
+    e.dying += dt; if (e.dying > 1.25) e.dead = true; return;
   }
   if (e.type === 'vecna') { updateVecna(e, dt); return; }
 
@@ -889,15 +890,15 @@ function drawEnemy(e, camX) {
   const T = ETYPES[e.type];
   let anim = 'idle', f = Math.floor(e.animT * 4) % 4;
   if (e.state === 'roar') { anim = 'roar'; f = Math.floor(e.t * 8) % 4; }
-  else if (e.state === 'walk') { anim = 'walk'; f = Math.floor(e.animT * (e.type === 'runner' ? 13 : 7)) % 4; }
+  else if (e.state === 'walk') { anim = 'walk'; f = Math.floor(e.animT * (e.type === 'runner' ? 14 : 8)) % ATLAS.demogorgon.anims.walk.n; }
   else if (e.state === 'wind') { anim = 'attack'; f = e.t < T.wind * 0.5 ? 0 : 1; }
-  else if (e.state === 'swipe') { anim = 'attack'; f = 2; }
-  else if (e.state === 'recover') { anim = 'attack'; f = 3; }
-  if (e.dying) {
-    const k = e.dying / 0.55;
-    ctx.save(); ctx.translate(x, e.y); ctx.scale(1 + k * 0.2, 1 - k * 0.5); ctx.translate(-x, -e.y);
-    sprite('demogorgon', 'idle', 0, x, e.y, e.sc, flip, Math.max(0, 1 - k));
-    ctx.restore(); return;
+  else if (e.state === 'swipe') { anim = 'attack'; f = e.t < 0.1 ? 2 : 3; }
+  else if (e.state === 'recover') { anim = 'attack'; f = 4; }
+  if (e.hurtT > 0 && (e.state === 'walk' || e.state === 'roar')) { anim = 'hurt'; f = 1; }
+  if (e.dying) { // animación de muerte (5 frames) y desvanecido final
+    const fr = Math.min(4, Math.floor(e.dying / 0.16)), fade = e.dying > 0.95 ? Math.max(0, 1 - (e.dying - 0.95) / 0.3) : 1;
+    sprite('demogorgon', 'die', fr, x, e.y, e.sc, flip, fade);
+    return;
   }
   // sombra
   ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, (e.grounded ? e.y : GROUND) + 2, 30 * e.sc / 1.1, 6, 0, 0, 7); ctx.fill();
@@ -1221,6 +1222,7 @@ loadAll().then(() => {
     G.banner = q.get('boss') || q.get('at') ? 0 : G.banner;
     if (q.get('bomb')) { G.p.gren = 5; throwGrenade(G.p); }
     for (let i = 0; i < (+q.get('ff') || 0) * 60; i++) updatePlay(1 / 60);
+    if (q.get('kill')) { G.enemies.forEach(e => damageEnemy(e, 99)); for (let i = 0; i < (+q.get('kill')) * 60; i++) updatePlay(1 / 60); }
     if (q.get('menu')) { G.state = 'pause'; openMenu(q.get('menu')); }
   }
 });

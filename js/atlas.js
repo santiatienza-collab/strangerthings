@@ -1,8 +1,8 @@
 window.ATLAS = {
  "will": {
   "img": "assets/will.png",
-  "cw": 160,
-  "ch": 102,
+  "cw": 100,
+  "ch": 92,
   "anims": {
    "idle": {
     "row": 0,
@@ -10,22 +10,22 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 5
+    "n": 6
    },
    "shoot": {
     "row": 2,
-    "n": 4
+    "n": 5
    },
    "other": {
     "row": 3,
-    "n": 4
+    "n": 7
    }
   }
  },
  "demogorgon": {
   "img": "assets/demogorgon.png",
-  "cw": 190,
-  "ch": 110,
+  "cw": 142,
+  "ch": 115,
   "anims": {
    "idle": {
     "row": 0,
@@ -33,15 +33,23 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 4
+    "n": 6
    },
    "attack": {
     "row": 2,
-    "n": 4
+    "n": 5
    },
    "roar": {
     "row": 3,
     "n": 4
+   },
+   "hurt": {
+    "row": 4,
+    "n": 5
+   },
+   "die": {
+    "row": 5,
+    "n": 5
    }
   }
  },
