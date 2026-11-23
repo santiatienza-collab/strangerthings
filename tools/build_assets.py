@@ -262,7 +262,7 @@ def dustin_lift_post(frames):
         bb = base.getbbox(); out.append(base.crop(bb) if bb else base)
     return out
 
-def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, idle_h=None, override=None, solid_top=0.0, fg_thr=14):
+def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, idle_h=None, override=None, solid_top=0.0, fg_thr=14, liftwalk=None, hip=0.40):
     """rows: {anim: (box, expected_count, anchor)}  anchor: 'c' centro | ('l', offset)"""
     img = Image.open(os.path.join(SRC, sheet)).convert('RGB')
     from PIL import ImageDraw
@@ -316,6 +316,27 @@ def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, 
                     fr = fr.resize((max(1, round(fr.width*k)), max(1, round(fr.height*k))), Image.NEAREST if k >= 1 else Image.BOX)
                     items.append((an, i, fr, feet_x(fr) if ov.get('anchor') == 'feet' else head_x(fr)))
                 print(f'  {name}.{an}: {len(frs)} frames nuevos de {osheet}, escala x{k:.3f}')
+    if liftwalk is not None:  # andar con los brazos en alto: torso con brazos de la pose 'lift' + piernas de cada frame de 'walk'
+        lifts = [it for it in items if it[0] == 'lift']
+        stand, up = lifts[0][2], lifts[liftwalk][2]
+        legH = int(stand.height * hip)
+        upc = up.crop((0, 0, up.width, up.height - legH))
+        def cx(img, rows):
+            a = img.getchannel('A').load(); xs = [x for y in rows for x in range(img.width) if a[x, y]]
+            return sum(xs) / len(xs) if xs else img.width / 2
+        cu = cx(upc, range(max(0, upc.height - 4), upc.height))
+        for an, i, fr, ax in [it for it in items if it[0] == 'walk']:
+            low = fr.crop((0, fr.height - legH, fr.width, fr.height))
+            cl = cx(low, range(0, 4))
+            c = max(cu, cl) + 2
+            ou, ol = int(round(c - cu)), int(round(c - cl))
+            W = max(ou + upc.width, ol + low.width)
+            img = Image.new('RGBA', (W, upc.height + low.height), (0, 0, 0, 0))
+            img.alpha_composite(low, (ol, upc.height)); img.alpha_composite(upc, (ou, 0))
+            items.append(('liftwalk', i, img, c))
+        extra_names = ['liftwalk']
+        for nme in extra_names:
+            if nme not in rows and nme not in extra: extra.append(nme)
     half = max(max(ax, fr.width-ax) for _, _, fr, ax in items)
     cw = int(half*2)+2
     ch = max(fr.height for _, _, fr, _ in items)+2
@@ -365,7 +386,7 @@ atlas['mike'] = build_char('mike', 'IMG-20261121-WA0027.jpg', DARK, {
     'walk':  ((1045, 305, 1510, 430), 4, 'c'),
     'talk':  ((1045, 460, 1510, 590), 4, 'c'),
     'other': ((1045, 640, 1510, 760), 4, 'c'),
-}, solid_top=0.45, fg_thr=7, override={'walk': dict(sheet='mike1.png', bg=(22, 15, 21), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, thr=9, cut_thr=4, local_bg=True, solid_top=0.42, pick=[0, 1, 2, 4, 5, 6]),
+}, solid_top=0.45, fg_thr=7, liftwalk=2, override={'walk': dict(sheet='mike1.png', bg=(22, 15, 21), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, thr=9, cut_thr=4, local_bg=True, solid_top=0.42, pick=[0, 1, 2, 4, 5, 6]),
     'lift': dict(sheet='objeto2.png', bg=(19, 12, 19), box=(40, 55, 1900, 262), n=12, scrub=False, thr=9, cut_thr=5, local_bg=True, solid_top=0.45, fg_thr=7, pick=[0, 4, 5, 6, 8, 9], ref_idx=0, keep_main=True, anchor='feet',
                  edit=erase_rects((700, 55, 760, 91), (850, 50, 915, 89), (1000, 35, 1075, 90), (1512, 85, 1680, 130))),
     'shoot': dict(sheet='objeto2.png', bg=(19, 12, 19), box=(40, 375, 1900, 558), n=12, scrub=False, thr=9, cut_thr=5, local_bg=True, solid_top=0.45, fg_thr=7, pick=[3, 5, 6, 7, 4], ref_idx=0, keep_main=True, anchor='feet')})
@@ -375,7 +396,7 @@ atlas['dustin'] = build_char('dustin', 'IMG-20261121-WA0028.jpg', DARK, {
     'walk':  ((1045, 305, 1510, 430), 4, 'c'),
     'talk':  ((1045, 460, 1510, 590), 4, 'c'),
     'other': ((1045, 640, 1510, 760), 4, 'c'),
-}, override={'walk': dict(sheet='dustin1.png', bg=(17, 13, 16), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8),
+}, liftwalk=2, hip=0.31, override={'walk': dict(sheet='dustin1.png', bg=(17, 13, 16), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8),
     'shoot': dict(sheet='tirachinas.jpg', bg=(17, 14, 21), box=(30, 85, 1250, 335), n=5, scrub=False, solid_top=0.45, fg_thr=8, pick=list(range(5)), ref_idx=0, anchor='feet'),
     'lift': dict(sheet='objeto.png', bg=(25, 17, 29), boxes=[((60, 180, 1500, 492), 8), ((60, 565, 1500, 858), 8)], scrub=False, solid_top=0.45, fg_thr=8, post=dustin_lift_post, pick=list(range(6)), ref_idx=0, anchor='feet')})
 # --- Steve (WA0029)

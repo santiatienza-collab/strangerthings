@@ -455,7 +455,10 @@ function liftFrame(p, mv) {
   const c = LIFT[p.id], L = p.lift; if (!c || !L) return null;
   if (L.ph === 'up') return Math.min(c.up[1], c.up[0] + Math.floor(L.t * LIFT_FPS));
   if (L.ph === 'down') return Math.min(c.down[1], c.down[0] + Math.floor(L.t * LIFT_FPS));
-  if (mv) return null; // caminando con el objeto: se usa el andar normal (el objeto se dibuja sobre la cabeza)
+  if (mv) { // caminando con el objeto: torso con los brazos en alto + piernas del andar
+    const n = ATLAS[p.id].anims.liftwalk.n;
+    return ['liftwalk', Math.floor(p.animT * Math.max(10, n * p.c.speed / 90)) % n];
+  }
   return c.hold[0] + Math.floor(L.t * 5) % (c.hold[1] - c.hold[0] + 1);
 }
 
@@ -464,7 +467,7 @@ function playerPose(p) {
   if (p.dead) return id === 'steve' ? ['hurt', 3] : ['other', id === 'will' || id === 'lucas' ? 6 : 3];
   if (p.hurtT > 0) return id === 'steve' ? ['hurt', 0] : id === 'will' || id === 'lucas' ? ['other', 4] : ['other', 1];
   if (p.melee > 0) return ['attack', Math.min(4, Math.floor((1 - p.melee / 0.36) * 5))];
-  { const lf = liftFrame(p, mv); if (lf !== null) return ['lift', lf]; }
+  { const lf = liftFrame(p, mv); if (lf !== null) return Array.isArray(lf) ? lf : ['lift', lf]; }
   if (p.crouch) return ['other', id === 'will' || id === 'lucas' ? 1 : 0];
   if (p.shootT > 0) {
     const hot = p.shootT > 0.12;
@@ -1245,7 +1248,7 @@ function drawPlayer(p, camX) {
   if (flipP && ATLAS[p.id].anims[a + 'L']) { an = a + 'L'; flipP = false; }
   drawCarryBack(p, x);
   // balanceo al andar: el cuerpo sube en el paso y baja en el apoyo, para que el ciclo se vea fluido
-  const bob = (a === 'walk' || a === 'run') && p.onGround && Math.abs(p.vx) > 5 ? -Math.round(1.6 * (1 - (f % 3) / 2)) : 0;
+  const bob = (a === 'walk' || a === 'run' || a === 'liftwalk') && p.onGround && Math.abs(p.vx) > 5 ? -Math.round(1.6 * (1 - (f % 3) / 2)) : 0;
   if (p.bindT > 0) { ctx.save(); ctx.shadowColor = '#ff2060'; ctx.shadowBlur = 18; sprite(p.id, an, f, x, p.y + bob, p.c.sc, flipP); ctx.restore(); }
   else sprite(p.id, an, f, x, p.y + bob, p.c.sc, flipP);
   drawCarryFront(p, x);
@@ -1258,7 +1261,7 @@ function drawPlayer(p, camX) {
   }
   if (!p.held && !p.dead && G.items.some(it => it.type === 'prop' && Math.abs(it.x - p.x) < 46 && Math.abs(it.y - (p.y - 20)) < 70)) text('DISPARA: COGER', x, p.y - 128, 8, '#9fe0ff', 'center');
   if (p.held && !p.dead) { // objeto en las manos: sobre las manos en la pose de brazos en alto; si camina, sobre la cabeza
-    const hs = a === 'lift' ? ATLAS[p.id].anims.lift.h[f] : 0;
+    const hs = a === 'lift' || a === 'liftwalk' ? ATLAS[p.id].anims[a].h[f] : 0;
     ctx.save(); ctx.translate(x, hs ? p.y - hs - 8 : p.y - 112 + Math.sin(G.t * 5) * 2); drawProp(p.held, hs ? 0.85 : 0.7); ctx.restore();
   }
   if (p.jam > 0) text(p.id === 'eleven' ? '¡AGOTADA!' : '¡SOBRECALENTADO!', x, p.y - 128, 8, Math.floor(G.t * 8) % 2 ? '#ff4040' : '#ffd34d', 'center');
