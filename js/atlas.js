@@ -91,7 +91,7 @@ window.ATLAS = {
  "mike": {
   "img": "assets/mike.png",
   "cw": 126,
-  "ch": 124,
+  "ch": 136,
   "anims": {
    "idle": {
     "row": 0,
@@ -112,13 +112,21 @@ window.ATLAS = {
    "walkL": {
     "row": 4,
     "n": 6
+   },
+   "lift": {
+    "row": 5,
+    "n": 9
+   },
+   "shoot": {
+    "row": 6,
+    "n": 5
    }
   }
  },
  "dustin": {
   "img": "assets/dustin.png",
   "cw": 123,
-  "ch": 122,
+  "ch": 163,
   "anims": {
    "idle": {
     "row": 0,
@@ -139,6 +147,10 @@ window.ATLAS = {
    "walkL": {
     "row": 4,
     "n": 6
+   },
+   "lift": {
+    "row": 5,
+    "n": 16
    }
   }
  },

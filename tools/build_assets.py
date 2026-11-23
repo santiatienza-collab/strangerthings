@@ -149,6 +149,36 @@ def swap_heads(frames, cut=0.43):
         out.append(g)
     return out
 
+def keep_main(fr, gap=7):
+    """se queda solo con el personaje: quita piedras volando, estelas y marcas sueltas que no tocan el cuerpo (a menos de 'gap' px)"""
+    a = fr.getchannel('A').point(lambda v: 255 if v > 0 else 0)
+    d = a.filter(ImageFilter.MaxFilter(gap * 2 + 1)).load(); ap = a.load(); w, h = fr.size
+    seen = {}; comps = []
+    for y in range(h):
+        for x in range(w):
+            if d[x, y] and (x, y) not in seen:
+                comp, st = [], [(x, y)]; seen[(x, y)] = len(comps)
+                while st:
+                    cx, cy = st.pop(); comp.append((cx, cy))
+                    for nx in (cx-1, cx, cx+1):
+                        for ny in (cy-1, cy, cy+1):
+                            if 0 <= nx < w and 0 <= ny < h and d[nx, ny] and (nx, ny) not in seen:
+                                seen[(nx, ny)] = len(comps); st.append((nx, ny))
+                comps.append(comp)
+    if len(comps) < 2: return fr
+    best = max(range(len(comps)), key=lambda i: sum(1 for (x, y) in comps[i] if ap[x, y]))
+    out = fr.copy(); op = out.load()
+    for y in range(h):
+        for x in range(w):
+            if ap[x, y] and seen.get((x, y)) != best: op[x, y] = (0, 0, 0, 0)
+    bb = out.getbbox()
+    return out.crop(bb) if bb else out
+
+def feet_x(fr):
+    a = fr.getchannel('A').load(); w, h = fr.size
+    xs = [x for y in range(int(h * 0.82), h) for x in range(w) if a[x, y]]
+    return sum(xs) / len(xs) if xs else w / 2
+
 def head_x(fr):
     """ancla de los frames de andar: centro de cabeza y tronco (8%-45% de la altura), que apenas se mueven en el ciclo;
     así el cuerpo no tiembla al cambiar de frame como con el centro del recuadro"""
@@ -209,14 +239,18 @@ def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, 
     if override:  # animaciones reemplazadas por frames de otra hoja, escalados a la altura del idle
         h_idle = next(fr.height for a, i, fr, _ in items if a == 'idle' and i == 0)
         for anim, ov in override.items():
-            osheet, obg, obox, on = ov['sheet'], ov['bg'], ov['box'], ov['n']
+            osheet, obg = ov['sheet'], ov['bg']
+            obox, on = (ov['boxes'][0] if 'boxes' in ov else (ov['box'], ov['n']))
             kw = dict(thr=ov.get('thr', 26), scrub=ov.get('scrub', True), cut_thr=ov.get('cut_thr'), local_bg=ov.get('local_bg', False), solid_top=ov.get('solid_top', 0.0), fg_thr=ov.get('fg_thr', 14))
             drop = set(ov.get('drop', ()))   # frames "de pie" (pies juntos) que harían parar el ciclo
             pick = ov.get('pick')            # ciclo simétrico: solo estos frames, en este orden
             sel = (lambda frs: [frs[i] for i in pick if i < len(frs)]) if pick else (lambda frs: [f for i, f in enumerate(frs) if i not in drop])
-            right = sel(sheet_frames(osheet, obg, obox, on, **kw))
+            allf = sheet_frames(osheet, obg, obox, on, **kw)
+            for bx, bn in ov.get('boxes', [])[1:]: allf += sheet_frames(osheet, obg, bx, bn, **kw)
+            if ov.get('keep_main'): allf = [keep_main(f) for f in allf]
+            right = sel(allf)
             if ov.get('same_head'): right = swap_heads(right)
-            k = h_idle / sorted(f.height for f in right)[len(right)//2]
+            k = h_idle / (allf[ov['ref_idx']].height if 'ref_idx' in ov else sorted(f.height for f in right)[len(right)//2])
             sets = {anim: right}
             if ov.get('left'):  # fila "Walk ←" de la hoja: se usa tal cual (sin voltear) al mirar a la izquierda
                 left = sel(sheet_frames(osheet, obg, ov['left'], on, **kw))
@@ -230,7 +264,7 @@ def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, 
                 if an not in rows and an not in extra: extra.append(an)
                 for i, fr in enumerate(frs):
                     fr = fr.resize((max(1, round(fr.width*k)), max(1, round(fr.height*k))), Image.NEAREST if k >= 1 else Image.BOX)
-                    items.append((an, i, fr, head_x(fr)))
+                    items.append((an, i, fr, feet_x(fr) if ov.get('anchor') == 'feet' else head_x(fr)))
                 print(f'  {name}.{an}: {len(frs)} frames nuevos de {osheet}, escala x{k:.3f}')
     half = max(max(ax, fr.width-ax) for _, _, fr, ax in items)
     cw = int(half*2)+2
@@ -280,14 +314,17 @@ atlas['mike'] = build_char('mike', 'IMG-20261121-WA0027.jpg', DARK, {
     'walk':  ((1045, 305, 1510, 430), 4, 'c'),
     'talk':  ((1045, 460, 1510, 590), 4, 'c'),
     'other': ((1045, 640, 1510, 760), 4, 'c'),
-}, solid_top=0.45, fg_thr=7, override={'walk': dict(sheet='mike1.png', bg=(22, 15, 21), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, thr=9, cut_thr=4, local_bg=True, solid_top=0.42, pick=[0, 1, 2, 4, 5, 6])})
+}, solid_top=0.45, fg_thr=7, override={'walk': dict(sheet='mike1.png', bg=(22, 15, 21), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, thr=9, cut_thr=4, local_bg=True, solid_top=0.42, pick=[0, 1, 2, 4, 5, 6]),
+    'lift': dict(sheet='objeto2.png', bg=(19, 12, 19), box=(40, 55, 1900, 262), n=12, scrub=False, thr=9, cut_thr=5, local_bg=True, solid_top=0.45, fg_thr=7, pick=list(range(9)), ref_idx=0, keep_main=True, anchor='feet'),
+    'shoot': dict(sheet='objeto2.png', bg=(19, 12, 19), box=(40, 375, 1900, 558), n=12, scrub=False, thr=9, cut_thr=5, local_bg=True, solid_top=0.45, fg_thr=7, pick=[3, 5, 6, 7, 4], ref_idx=0, keep_main=True, anchor='feet')})
 # --- Dustin (WA0028)
 atlas['dustin'] = build_char('dustin', 'IMG-20261121-WA0028.jpg', DARK, {
     'idle':  ((1045, 160, 1510, 285), 4, 'c'),
     'walk':  ((1045, 305, 1510, 430), 4, 'c'),
     'talk':  ((1045, 460, 1510, 590), 4, 'c'),
     'other': ((1045, 640, 1510, 760), 4, 'c'),
-}, override={'walk': dict(sheet='dustin1.png', bg=(17, 13, 16), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8)})
+}, override={'walk': dict(sheet='dustin1.png', bg=(17, 13, 16), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8),
+    'lift': dict(sheet='objeto.png', bg=(25, 17, 29), boxes=[((60, 180, 1500, 492), 8), ((60, 565, 1500, 858), 8)], scrub=False, solid_top=0.45, fg_thr=8, pick=list(range(16)), ref_idx=0, anchor='feet')})
 # --- Steve (WA0029)
 S = 'IMG-20261121-WA0029.jpg'
 atlas['steve'] = build_char('steve', S, DARK, {

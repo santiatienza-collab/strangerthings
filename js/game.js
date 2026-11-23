@@ -321,7 +321,7 @@ function fire(p) {
 function throwProp(p) {
   const up = down(...K.up);
   G.props.push({ kind: p.held, x: p.x + p.face * 18, y: p.y - 76, vx: p.face * (up ? 170 : 420) + p.vx * 0.3, vy: up ? -640 : -240, rot: 0, t: 0 });
-  p.held = null; Snd.swing();
+  p.held = null; liftStart(p, 'down'); Snd.swing();
 }
 
 function throwGrenade(p) {
@@ -350,6 +350,7 @@ function updatePlayer(dt) {
   if (p.shootCd > 0) p.shootCd -= dt;
   if (p.shootT > 0) p.shootT -= dt;
   if (p.aimT > 0) p.aimT -= dt;
+  liftUpdate(p, dt);
   if (p.drop > 0) p.drop -= dt;
   if (p.bindT > 0) p.bindT -= dt;
 
@@ -403,12 +404,12 @@ function updatePlayer(dt) {
   let used = false;
   if (tap(...K.fire) && !p.dead) {
     if (p.held) {
-      if (down(...K.down)) { G.items.push({ x: p.x + p.face * 26, y: GROUND - 18, type: 'prop', prop: p.held, t: 0 }); p.held = null; Snd.pick(); }
+      if (down(...K.down)) { G.items.push({ x: p.x + p.face * 26, y: GROUND - 18, type: 'prop', prop: p.held, t: 0 }); p.held = null; liftStart(p, 'down'); Snd.pick(); }
       else throwProp(p);
       used = true;
     } else {
       const near = G.items.find(it => it.type === 'prop' && Math.abs(it.x - p.x) < 46 && Math.abs(it.y - (p.y - 20)) < 70);
-      if (near) { p.held = near.prop; near.got = true; Snd.pick(); burst(near.x, near.y, 8, '#fff', 120, 0.3); used = true; }
+      if (near) { p.held = near.prop; liftStart(p, 'up'); near.got = true; Snd.pick(); burst(near.x, near.y, 8, '#fff', 120, 0.3); used = true; }
     }
     if (used) p.shootCd = Math.max(p.shootCd, 0.3);
   }
@@ -436,15 +437,38 @@ function updatePlayer(dt) {
   }
 }
 
+// Animaciones de coger/llevar/lanzar un objeto con los brazos en alto (frames inclusivos de la animación 'lift')
+const LIFT = { mike: { up: [0, 4], hold: [4, 6], down: [7, 8] }, dustin: { up: [0, 5], hold: [5, 9], down: [10, 15] } };
+const LIFT_FPS = 14;
+function liftStart(p, ph) { if (LIFT[p.id] && ATLAS[p.id].anims.lift) p.lift = { ph, t: 0 }; }
+function liftUpdate(p, dt) {
+  const c = LIFT[p.id]; if (!c) return;
+  if (p.lift) {
+    p.lift.t += dt;
+    if (p.lift.ph === 'up' && p.lift.t * LIFT_FPS >= c.up[1] - c.up[0] + 1) p.lift = { ph: 'hold', t: 0 };
+    else if (p.lift.ph === 'down' && p.lift.t * LIFT_FPS >= c.down[1] - c.down[0] + 1) p.lift = null;
+  }
+  if (p.held && !p.lift) p.lift = { ph: 'hold', t: 0 };
+  if (!p.held && p.lift && p.lift.ph !== 'down') p.lift = null;
+}
+function liftFrame(p, mv) {
+  const c = LIFT[p.id], L = p.lift; if (!c || !L) return null;
+  if (L.ph === 'up') return Math.min(c.up[1], c.up[0] + Math.floor(L.t * LIFT_FPS));
+  if (L.ph === 'down') return Math.min(c.down[1], c.down[0] + Math.floor(L.t * LIFT_FPS));
+  if (mv) return null; // caminando con el objeto: se usa el andar normal (el objeto se dibuja sobre la cabeza)
+  return c.hold[0] + Math.floor(L.t * 5) % (c.hold[1] - c.hold[0] + 1);
+}
+
 function playerPose(p) {
   const id = p.id, mv = Math.abs(p.vx) > 5;
   if (p.dead) return id === 'steve' ? ['hurt', 3] : ['other', id === 'will' || id === 'lucas' ? 6 : 3];
   if (p.hurtT > 0) return id === 'steve' ? ['hurt', 0] : id === 'will' || id === 'lucas' ? ['other', 4] : ['other', 1];
   if (p.melee > 0) return ['attack', Math.min(4, Math.floor((1 - p.melee / 0.36) * 5))];
+  { const lf = liftFrame(p, mv); if (lf !== null) return ['lift', lf]; }
   if (p.crouch) return ['other', id === 'will' || id === 'lucas' ? 1 : 0];
   if (p.shootT > 0) {
     const hot = p.shootT > 0.12;
-    if (id === 'will' || id === 'lucas') return ['shoot', hot ? 2 : 1];
+    if (id === 'will' || id === 'lucas' || id === 'mike') return ['shoot', hot ? 2 : 1];
     if (id === 'eleven') return ['power', hot ? 3 : 2];
     return ['talk', hot ? 2 : 1];
   }
@@ -1161,7 +1185,7 @@ function drawEnemy(e, camX) {
 // al disparar, Mike y Dustin levantan un brazo (manga + mano) hasta el arma, que apunta hacia donde miras.
 // Will y Lucas ya traen el arma en sus poses de disparo del sprite.
 const ARM = { mike: ['#b9a37a', '#f0b890'], dustin: ['#2c4a8c', '#f2b88e'] };
-const hasAimPose = id => id === 'will' || id === 'lucas';
+const hasAimPose = id => id === 'will' || id === 'lucas' || id === 'mike';
 function drawCarryBack(p, x) { // rifle de Will en bandolera: asoma por encima del hombro y por debajo de la cadera
   if (p.id !== 'will' || p.dead || (p.shootT > 0)) return;
   const f = p.face, c = ctx, y = p.y;
@@ -1255,7 +1279,7 @@ function drawPlayer(p, camX) {
     ctx.fillStyle = '#ff5a66'; ctx.fillRect(nx, p.y - 90, 1, Math.max(1, len - 3));
   }
   if (!p.held && !p.dead && G.items.some(it => it.type === 'prop' && Math.abs(it.x - p.x) < 46 && Math.abs(it.y - (p.y - 20)) < 70)) text('DISPARA: COGER', x, p.y - 128, 8, '#9fe0ff', 'center');
-  if (p.held && !p.dead) { ctx.save(); ctx.translate(x, p.y - 112 + Math.sin(G.t * 5) * 2); drawProp(p.held, 0.7); ctx.restore(); }
+  if (p.held && !p.dead && a !== 'lift') { ctx.save(); ctx.translate(x, p.y - 112 + Math.sin(G.t * 5) * 2); drawProp(p.held, 0.7); ctx.restore(); }
   if (p.jam > 0) text(p.id === 'eleven' ? '¡AGOTADA!' : '¡SOBRECALENTADO!', x, p.y - 128, 8, Math.floor(G.t * 8) % 2 ? '#ff4040' : '#ffd34d', 'center');
   if (p.melee > 0 && p.melee < 0.28) { // estela del bate
     const prog = 1 - p.melee / 0.36;
