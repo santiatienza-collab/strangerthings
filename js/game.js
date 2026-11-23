@@ -140,11 +140,11 @@ function sprite(name, anim, frame, x, y, scale = 1, flip = false, alpha = 1) {
 
 /* ------------------------------------------------------------- game data */
 const CHARS = {
-  will:   { name: 'WILL',   hp: 6, speed: 190, rate: 0.22, dmg: 1.2, bspeed: 720, kind: 'bullet', heat: 0.115, sc: 1.0,  tag: 'RIFLE CAZA',   stats: [3, 3, 4] },
+  will:   { name: 'WILL',   hp: 6, speed: 190, rate: 0.22, dmg: 1.2, bspeed: 720, kind: 'bullet', heat: 0.115, sc: 1.0,  tag: 'TIRACHINAS',   stats: [3, 3, 4] },
   eleven: { name: 'ELEVEN', hp: 5, speed: 185, rate: 0.34, dmg: 1.7, bspeed: 520, kind: 'psy',    heat: 0.20, sc: 1.0,  tag: 'TELEQUINESIS', pierce: 2, stats: [2, 3, 5] },
   lucas:  { name: 'LUCAS',  hp: 5, speed: 205, rate: 0.30, dmg: 1.5, bspeed: 780, kind: 'pellet', heat: 0.13, sc: 1.0, tag: 'WRIST ROCKET', stats: [2, 4, 4] },
   mike:   { name: 'MIKE',   hp: 5, speed: 220, rate: 0.13, dmg: 0.7, bspeed: 660, kind: 'pellet', heat: 0.07, sc: 1.0,  tag: 'TIRACHINAS',  stats: [2, 5, 3] },
-  dustin: { name: 'DUSTIN', hp: 6, speed: 195, rate: 0.38, dmg: 0.8, bspeed: 570, kind: 'flare',  heat: 0.20, sc: 1.0,  tag: 'BENGALAS x3', stats: [3, 3, 3] },
+  dustin: { name: 'DUSTIN', hp: 6, speed: 195, rate: 0.38, dmg: 0.8, bspeed: 570, kind: 'flare',  heat: 0.20, sc: 1.0,  tag: 'TIRACHINAS x3', stats: [3, 3, 3] },
   steve:  { name: 'STEVE',  hp: 8, speed: 225, rate: 0.45, dmg: 3.0, melee: true,   sc: 0.95, tag: 'BATE CLAVOS', stats: [5, 4, 4] },
 };
 const ORDER = ['will', 'eleven', 'mike', 'lucas', 'dustin', 'steve'];
@@ -438,7 +438,7 @@ function updatePlayer(dt) {
 }
 
 // Animaciones de coger/llevar/lanzar un objeto con los brazos en alto (frames inclusivos de la animación 'lift')
-const LIFT = { mike: { up: [0, 4], hold: [4, 6], down: [7, 8] }, dustin: { up: [0, 5], hold: [5, 9], down: [10, 15] } };
+const LIFT = { mike: { up: [0, 1], hold: [1, 3], down: [4, 5] }, dustin: { up: [0, 1], hold: [1, 5], down: [0, 0] } };
 const LIFT_FPS = 14;
 function liftStart(p, ph) { if (LIFT[p.id] && ATLAS[p.id].anims.lift) p.lift = { ph, t: 0 }; }
 function liftUpdate(p, dt) {
@@ -468,7 +468,7 @@ function playerPose(p) {
   if (p.crouch) return ['other', id === 'will' || id === 'lucas' ? 1 : 0];
   if (p.shootT > 0) {
     const hot = p.shootT > 0.12;
-    if (id === 'will' || id === 'lucas' || id === 'mike') return ['shoot', hot ? 2 : 1];
+    if (id === 'will' || id === 'lucas' || id === 'mike' || id === 'dustin') return ['shoot', hot ? 2 : 1];
     if (id === 'eleven') return ['power', hot ? 3 : 2];
     return ['talk', hot ? 2 : 1];
   }
@@ -1185,29 +1185,15 @@ function drawEnemy(e, camX) {
 // al disparar, Mike y Dustin levantan un brazo (manga + mano) hasta el arma, que apunta hacia donde miras.
 // Will y Lucas ya traen el arma en sus poses de disparo del sprite.
 const ARM = { mike: ['#b9a37a', '#f0b890'], dustin: ['#2c4a8c', '#f2b88e'] };
-const hasAimPose = id => id === 'will' || id === 'lucas' || id === 'mike';
-function drawCarryBack(p, x) { // rifle de Will en bandolera: asoma por encima del hombro y por debajo de la cadera
-  if (p.id !== 'will' || p.dead || (p.shootT > 0)) return;
-  const f = p.face, c = ctx, y = p.y;
-  c.save(); c.lineCap = 'round';
-  c.strokeStyle = '#120a0c'; c.lineWidth = 6.5; c.beginPath(); c.moveTo(x - f * 16, y - 110); c.lineTo(x + f * 3, y - 30); c.stroke();
-  c.strokeStyle = '#3b4048'; c.lineWidth = 4; c.beginPath(); c.moveTo(x - f * 16, y - 110); c.lineTo(x - f * 9, y - 80); c.stroke();     // cañón
-  c.strokeStyle = '#8a5a2b'; c.lineWidth = 4.4; c.beginPath(); c.moveTo(x - f * 3, y - 54); c.lineTo(x + f * 3, y - 30); c.stroke();     // culata
-  c.restore();
-}
-function drawCarryFront(p, x) { // tirachinas en el bolsillo de atrás y pistola de bengalas en la cartuchera
-  if (p.dead || p.shootT > 0 || p.aimT > 0) return;
-  const f = p.face, c = ctx, hy = p.y - (p.crouch ? 28 : 42);
+const hasAimPose = id => id === 'will' || id === 'lucas' || id === 'mike' || id === 'dustin';
+function drawCarryBack(p, x) { /* nadie lleva nada a la espalda: todos usan tirachinas */ }
+function drawCarryFront(p, x) { // el tirachinas asoma del bolsillo de atrás (todos menos Eleven y Steve)
+  if (p.dead || p.shootT > 0 || p.aimT > 0 || !['mike', 'lucas', 'will', 'dustin'].includes(p.id)) return;
+  const f = p.face, c = ctx, hy = p.y - (p.crouch ? 28 : 42), col = p.id === 'mike' ? '#2f6fb0' : '#8a5a2b';
   c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
-  if (p.id === 'mike' || p.id === 'lucas') {
-    c.translate(x - f * 11, hy); c.rotate(-f * 0.5);
-    c.strokeStyle = '#120a0c'; c.lineWidth = 5.4; c.beginPath(); c.moveTo(0, 6); c.lineTo(0, -2); c.moveTo(0, -2); c.lineTo(-4.5, -9); c.moveTo(0, -2); c.lineTo(4.5, -9); c.stroke();
-    c.strokeStyle = p.id === 'lucas' ? '#8a5a2b' : '#2f6fb0'; c.lineWidth = 3; c.beginPath(); c.moveTo(0, 6); c.lineTo(0, -2); c.moveTo(0, -2); c.lineTo(-4.5, -9); c.moveTo(0, -2); c.lineTo(4.5, -9); c.stroke();
-  } else if (p.id === 'dustin') {
-    c.translate(x + f * 9, hy); c.rotate(f * 0.15);
-    c.fillStyle = '#120a0c'; c.fillRect(-4, -3, 9, 14);
-    c.fillStyle = '#d4551c'; c.fillRect(-3, -2, 7, 5); c.fillStyle = '#4a2a14'; c.fillRect(-2, 3, 5, 7);  // cartuchera con la culata asomando
-  }
+  c.translate(x - f * 11, hy); c.rotate(-f * 0.5);
+  c.strokeStyle = '#120a0c'; c.lineWidth = 5.4; c.beginPath(); c.moveTo(0, 6); c.lineTo(0, -2); c.moveTo(0, -2); c.lineTo(-4.5, -9); c.moveTo(0, -2); c.lineTo(4.5, -9); c.stroke();
+  c.strokeStyle = col; c.lineWidth = 3; c.beginPath(); c.moveTo(0, 6); c.lineTo(0, -2); c.moveTo(0, -2); c.lineTo(-4.5, -9); c.moveTo(0, -2); c.lineTo(4.5, -9); c.stroke();
   c.restore();
 }
 function drawWeapon(p, x) {
@@ -1279,7 +1265,10 @@ function drawPlayer(p, camX) {
     ctx.fillStyle = '#ff5a66'; ctx.fillRect(nx, p.y - 90, 1, Math.max(1, len - 3));
   }
   if (!p.held && !p.dead && G.items.some(it => it.type === 'prop' && Math.abs(it.x - p.x) < 46 && Math.abs(it.y - (p.y - 20)) < 70)) text('DISPARA: COGER', x, p.y - 128, 8, '#9fe0ff', 'center');
-  if (p.held && !p.dead && a !== 'lift') { ctx.save(); ctx.translate(x, p.y - 112 + Math.sin(G.t * 5) * 2); drawProp(p.held, 0.7); ctx.restore(); }
+  if (p.held && !p.dead) { // objeto en las manos: sobre las manos en la pose de brazos en alto; si camina, sobre la cabeza
+    const hs = a === 'lift' ? ATLAS[p.id].anims.lift.h[f] : 0;
+    ctx.save(); ctx.translate(x, hs ? p.y - hs - 8 : p.y - 112 + Math.sin(G.t * 5) * 2); drawProp(p.held, hs ? 0.85 : 0.7); ctx.restore();
+  }
   if (p.jam > 0) text(p.id === 'eleven' ? '¡AGOTADA!' : '¡SOBRECALENTADO!', x, p.y - 128, 8, Math.floor(G.t * 8) % 2 ? '#ff4040' : '#ffd34d', 'center');
   if (p.melee > 0 && p.melee < 0.28) { // estela del bate
     const prog = 1 - p.melee / 0.36;

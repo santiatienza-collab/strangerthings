@@ -116,8 +116,9 @@ def cut(crop, run, bg, thr=26, solid=False, boost=1.0, inner=12, local_bg=False,
         print('   (aviso) frame toca el borde vertical del recorte', 'arriba' if bb[1] <= 0 else 'abajo')
     return out.crop(bb)
 
-def sheet_frames(sheet, bg, box, n, thr=26, scrub=True, cut_thr=None, local_bg=False, solid_top=0.0, fg_thr=14):
+def sheet_frames(sheet, bg, box, n, thr=26, scrub=True, cut_thr=None, local_bg=False, solid_top=0.0, fg_thr=14, edit=None):
     img = Image.open(os.path.join(SRC, sheet)).convert('RGB')
+    if edit: edit(img)
     # borra la rejilla del panel: sus píxeles son grises apagados (el personaje no usa grises medios)
     x0, y0, x1, y1 = box
     px = img.load()
@@ -213,6 +214,54 @@ def thin_clean(fr, passes=2, opening=True):
     bb = fr.getbbox()
     return fr.crop(bb) if bb else fr
 
+def erase_rects(*rects, bg=(19, 12, 19)):
+    """quita objetos pintados en la hoja (piedra de Mike) tapándolos con el color de fondo"""
+    def f(img):
+        from PIL import ImageDraw
+        d = ImageDraw.Draw(img)
+        for r in rects: d.rectangle(r, fill=bg)
+    return f
+
+def _is_skin(c): return c[0] > 200 and c[1] > 140 and c[2] > 100 and c[2] < 200 and c[0] - c[2] > 35 and c[1] < 235
+def _is_blue(c): return c[2] > c[0] + 25 and c[2] > c[1] + 5
+
+def _face_bbox(fr):
+    """caja de la cara = mayor mancha de piel en la parte alta del frame"""
+    a = fr.load(); w, h = fr.size
+    seen = set(); best = None
+    for y in range(int(h * 0.7)):
+        for x in range(w):
+            if (x, y) in seen or a[x, y][3] == 0 or not _is_skin(a[x, y][:3]): continue
+            st = [(x, y)]; seen.add((x, y)); xs = []; ys = []
+            while st:
+                cx, cy = st.pop(); xs.append(cx); ys.append(cy)
+                for nx, ny in ((cx+1, cy), (cx-1, cy), (cx, cy+1), (cx, cy-1)):
+                    if 0 <= nx < w and 0 <= ny < int(h * 0.7) and (nx, ny) not in seen and a[nx, ny][3] and _is_skin(a[nx, ny][:3]):
+                        seen.add((nx, ny)); st.append((nx, ny))
+            if best is None or len(xs) > best[0]: best = (len(xs), min(xs), min(ys), max(xs), max(ys))
+    return best[1:] if best else None
+
+def dustin_lift_post(frames):
+    """Dustin con los brazos en alto SIN el extintor: se borra el objeto (todo lo que no sea piel o manga azul por encima de la cara)
+    y se pinta, detrás, la gorra del frame de pie, que el extintor tapaba."""
+    stand = frames[0]; sb = _face_bbox(stand)
+    dome = stand.crop((0, 0, stand.width, sb[1] + 5))
+    out = [stand]
+    for i in (5, 6, 7, 8, 9):
+        fr = frames[i].copy(); p = fr.load(); fb = _face_bbox(fr)
+        for y in range(max(0, fb[1] - 2)):
+            for x in range(fr.width):
+                c = p[x, y]
+                if c[3] and not (_is_skin(c[:3]) or _is_blue(c[:3])): p[x, y] = (0, 0, 0, 0)
+        # lienzo con sitio para la gorra, que queda detrás de lo que ya había
+        dx, dy = fb[0] - sb[0], fb[1] - sb[1]
+        W, H = max(fr.width, dome.width + max(dx, 0)), fr.height + max(-dy, 0)
+        base = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+        base.alpha_composite(dome, (max(dx, 0), max(dy, 0)))
+        base.alpha_composite(fr, (0, max(-dy, 0)))
+        bb = base.getbbox(); out.append(base.crop(bb) if bb else base)
+    return out
+
 def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, idle_h=None, override=None, solid_top=0.0, fg_thr=14):
     """rows: {anim: (box, expected_count, anchor)}  anchor: 'c' centro | ('l', offset)"""
     img = Image.open(os.path.join(SRC, sheet)).convert('RGB')
@@ -241,13 +290,14 @@ def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, 
         for anim, ov in override.items():
             osheet, obg = ov['sheet'], ov['bg']
             obox, on = (ov['boxes'][0] if 'boxes' in ov else (ov['box'], ov['n']))
-            kw = dict(thr=ov.get('thr', 26), scrub=ov.get('scrub', True), cut_thr=ov.get('cut_thr'), local_bg=ov.get('local_bg', False), solid_top=ov.get('solid_top', 0.0), fg_thr=ov.get('fg_thr', 14))
+            kw = dict(thr=ov.get('thr', 26), scrub=ov.get('scrub', True), cut_thr=ov.get('cut_thr'), local_bg=ov.get('local_bg', False), solid_top=ov.get('solid_top', 0.0), fg_thr=ov.get('fg_thr', 14), edit=ov.get('edit'))
             drop = set(ov.get('drop', ()))   # frames "de pie" (pies juntos) que harían parar el ciclo
             pick = ov.get('pick')            # ciclo simétrico: solo estos frames, en este orden
             sel = (lambda frs: [frs[i] for i in pick if i < len(frs)]) if pick else (lambda frs: [f for i, f in enumerate(frs) if i not in drop])
             allf = sheet_frames(osheet, obg, obox, on, **kw)
             for bx, bn in ov.get('boxes', [])[1:]: allf += sheet_frames(osheet, obg, bx, bn, **kw)
             if ov.get('keep_main'): allf = [keep_main(f) for f in allf]
+            if ov.get('post'): allf = ov['post'](allf)
             right = sel(allf)
             if ov.get('same_head'): right = swap_heads(right)
             k = h_idle / (allf[ov['ref_idx']].height if 'ref_idx' in ov else sorted(f.height for f in right)[len(right)//2])
@@ -275,7 +325,7 @@ def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, 
     atlas = Image.new('RGBA', (cw*maxn, ch*len(order)), (0, 0, 0, 0))
     for r, a in enumerate(order):
         fs = [it for it in items if it[0] == a]
-        anims[a] = {'row': r, 'n': len(fs)}
+        anims[a] = {'row': r, 'n': len(fs), 'h': [it[2].height for it in fs]}   # 'h' = altura de cada frame (para colocar objetos sobre las manos)
         for c, (_, _, fr, ax) in enumerate(fs):
             atlas.paste(fr, (int(c*cw + cw/2 - ax), r*ch + ch - fr.height - 1), fr)
     atlas.save(os.path.join(OUT, f'{name}.png'))
@@ -291,7 +341,8 @@ atlas['will'] = build_char('will', 'will.png', (21, 16, 24), {
     'walk':  ((635, 538, 1450, 690), 6, 'c'),
     'shoot': ((40, 768, 712, 925), 5, ('l', 52)),
     'other': ((735, 764, 1520, 925), 7, 'c'),
-}, idle_h=111, override={'walk': dict(sheet='will1.png', bg=(21, 16, 23), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8, mirror_left=True, same_head=True)}, blank=[(40, 490, 215, 540), (625, 490, 790, 540), (40, 712, 250, 764), (745, 712, 975, 764)])
+}, idle_h=111, override={'walk': dict(sheet='will1.png', bg=(21, 16, 23), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8, mirror_left=True, same_head=True),
+    'shoot': dict(sheet='tirachinas.jpg', bg=(17, 14, 21), box=(30, 482, 1250, 760), n=5, scrub=False, solid_top=0.45, fg_thr=8, pick=list(range(5)), ref_idx=0, anchor='feet')}, blank=[(40, 490, 215, 540), (625, 490, 790, 540), (40, 712, 250, 764), (745, 712, 975, 764)])
 atlas['demogorgon'] = build_char('demogorgon', 'demogorgon.png', (19, 18, 25), {
     'idle':   ((45, 452, 595, 595), 4, 'c'),
     'walk':   ((622, 452, 1490, 595), 6, 'c'),
@@ -315,7 +366,8 @@ atlas['mike'] = build_char('mike', 'IMG-20261121-WA0027.jpg', DARK, {
     'talk':  ((1045, 460, 1510, 590), 4, 'c'),
     'other': ((1045, 640, 1510, 760), 4, 'c'),
 }, solid_top=0.45, fg_thr=7, override={'walk': dict(sheet='mike1.png', bg=(22, 15, 21), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, thr=9, cut_thr=4, local_bg=True, solid_top=0.42, pick=[0, 1, 2, 4, 5, 6]),
-    'lift': dict(sheet='objeto2.png', bg=(19, 12, 19), box=(40, 55, 1900, 262), n=12, scrub=False, thr=9, cut_thr=5, local_bg=True, solid_top=0.45, fg_thr=7, pick=list(range(9)), ref_idx=0, keep_main=True, anchor='feet'),
+    'lift': dict(sheet='objeto2.png', bg=(19, 12, 19), box=(40, 55, 1900, 262), n=12, scrub=False, thr=9, cut_thr=5, local_bg=True, solid_top=0.45, fg_thr=7, pick=[0, 4, 5, 6, 8, 9], ref_idx=0, keep_main=True, anchor='feet',
+                 edit=erase_rects((700, 55, 760, 91), (850, 50, 915, 89), (1000, 35, 1075, 90), (1512, 85, 1680, 130))),
     'shoot': dict(sheet='objeto2.png', bg=(19, 12, 19), box=(40, 375, 1900, 558), n=12, scrub=False, thr=9, cut_thr=5, local_bg=True, solid_top=0.45, fg_thr=7, pick=[3, 5, 6, 7, 4], ref_idx=0, keep_main=True, anchor='feet')})
 # --- Dustin (WA0028)
 atlas['dustin'] = build_char('dustin', 'IMG-20261121-WA0028.jpg', DARK, {
@@ -324,7 +376,8 @@ atlas['dustin'] = build_char('dustin', 'IMG-20261121-WA0028.jpg', DARK, {
     'talk':  ((1045, 460, 1510, 590), 4, 'c'),
     'other': ((1045, 640, 1510, 760), 4, 'c'),
 }, override={'walk': dict(sheet='dustin1.png', bg=(17, 13, 16), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8),
-    'lift': dict(sheet='objeto.png', bg=(25, 17, 29), boxes=[((60, 180, 1500, 492), 8), ((60, 565, 1500, 858), 8)], scrub=False, solid_top=0.45, fg_thr=8, pick=list(range(16)), ref_idx=0, anchor='feet')})
+    'shoot': dict(sheet='tirachinas.jpg', bg=(17, 14, 21), box=(30, 85, 1250, 335), n=5, scrub=False, solid_top=0.45, fg_thr=8, pick=list(range(5)), ref_idx=0, anchor='feet'),
+    'lift': dict(sheet='objeto.png', bg=(25, 17, 29), boxes=[((60, 180, 1500, 492), 8), ((60, 565, 1500, 858), 8)], scrub=False, solid_top=0.45, fg_thr=8, post=dustin_lift_post, pick=list(range(6)), ref_idx=0, anchor='feet')})
 # --- Steve (WA0029)
 S = 'IMG-20261121-WA0029.jpg'
 atlas['steve'] = build_char('steve', S, DARK, {
