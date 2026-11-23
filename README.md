@@ -3,6 +3,9 @@
 Shoot & run de plataformas al estilo *Metal Slug*, ambientado en el Mundo del Revés.
 Hecho con HTML5 Canvas, sin dependencias: abre `index.html` o publícalo en GitHub Pages.
 
+## Actos
+10 actos en dos escenarios: **Mundo del Revés** (actos 1-5, acaba con Vecna) y **Laboratorio HNL** (actos 6-10, jefe final doble). Los fondos se regeneran con `python3 tools/build_bg.py`. Depuración: `?char=will&stage=7` salta a un acto.
+
 ## Controles
 Por defecto (todas se pueden cambiar en **AJUSTES → CONTROLES**; se guardan en el navegador):
 
@@ -19,11 +22,13 @@ Por defecto (todas se pueden cambiar en **AJUSTES → CONTROLES**; se guardan en
 
 El menú de pausa incluye ajustes de música, efectos, temblor de pantalla y pantalla completa.
 
-## Móvil y tablet (Android)
+## Móvil y tablet (Android e iPhone/iPad)
 - En **Android** aparecen automáticamente una **cruceta** y tres botones (**SALTO, FUEGO, BOMBA**) más un botón de **pausa**, todos transparentes. Admiten multitoque (correr, saltar y disparar a la vez) y la cruceta acepta diagonales y deslizar el dedo. En los menús, la cruceta navega, FUEGO acepta y BOMBA vuelve atrás.
 - Hay que jugar en **horizontal**; en vertical se muestra un aviso.
 - **Instalar como app:** abre la web en Chrome (Android) → menú ⋮ → *Instalar aplicación* (o el botón *INSTALAR APP* del título). Se abre a pantalla completa y funciona **sin conexión**.
-- Los controles táctiles y la instalación solo se activan en Android. Para probar los controles en otro dispositivo: añade `?touch=1` a la URL.
+- **iPhone / iPad (Safari):** mismos controles. Para pantalla completa pulsa *Compartir* → *Añadir a pantalla de inicio* (en el título aparece un aviso). Gira el móvil en horizontal.
+- **Controles mejorados:** la cruceta es **flotante** (aparece bajo tu pulgar en la mitad izquierda y lo sigue), puedes **deslizar entre SALTO/FUEGO/BOMBA** sin soltar, hay zonas de toque ampliadas, vibración suave (Android y iOS 17.4+), márgenes seguros para el notch y pausa automática al cambiar de app.
+- Los controles táctiles solo se activan en Android e iOS. Para probar los controles en otro dispositivo: añade `?touch=1` a la URL.
 
 ## Personajes
 Will (rifle), Eleven (telequinesis perforante), Mike (tirachinas rápido), Dustin (bengalas x3), Steve (bate con clavos, cuerpo a cuerpo).

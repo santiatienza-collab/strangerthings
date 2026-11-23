@@ -6,6 +6,7 @@
 const W = 960, H = 540, GROUND = 404, GRAV = 1700, JUMP = 600;
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false; // pixel art nítido (sin suavizado al escalar sprites)
 const FONT = '"Press Start 2P", "Courier New", monospace';
 
 /* ------------------------------------------------------------------ input */
@@ -75,7 +76,7 @@ const Snd = (() => {
   const ROOT = [130.81, 103.83, 116.54, 98.0];
   const ARP = [1, 1.2, 1.5, 2, 1.5, 1.2, 1.5, 1.8];
   const tick = () => {
-    if (ac && !muted) {
+    if (ac && !muted && ac.state === 'running') {
       const bar = Math.floor(step / 16) % 4, root = ROOT[bar];
       if (step % 16 === 0) tone(root / 2, 1.1, 'sawtooth', 0.09, 0, 0, 'music');
       tone(root * 2 * ARP[step % 8], 0.18, 'triangle', 0.07, 0, 0, 'music');
@@ -85,6 +86,15 @@ const Snd = (() => {
     musicTimer = setTimeout(tick, fast ? 120 : 170);
   };
   const startMusic = () => { if (!musicTimer) tick(); };
+  // Los navegadores bloquean el audio hasta que hay un gesto: se intenta al cargar y se reintenta
+  // con cualquier toque, clic o tecla hasta que el audio esté en marcha.
+  const GESTURES = ['pointerdown', 'pointerup', 'mousedown', 'click', 'touchstart', 'touchend', 'keydown'];
+  const autoUnlock = () => {
+    unlock();
+    if (ac && ac.state === 'running') GESTURES.forEach(g => removeEventListener(g, autoUnlock, true));
+  };
+  GESTURES.forEach(g => addEventListener(g, autoUnlock, true));
+  unlock(); // intento inicial: suena ya si el navegador lo permite
   return {
     unlock, applyVol, setFast: v => { fast = v; },
     toggleMute: () => { muted = !muted; return muted; },
@@ -112,6 +122,8 @@ async function loadAll() {
   const jobs = Object.keys(ATLAS).map(async k => { IMG[k] = await loadImg(ATLAS[k].img); });
   jobs.push(loadImg('assets/bg_far.png').then(i => IMG.far = i));
   jobs.push(loadImg('assets/bg_floor.png').then(i => IMG.floor = i));
+  jobs.push(loadImg('assets/lab_far.png').then(i => IMG.labFar = i));
+  jobs.push(loadImg('assets/lab_floor.png').then(i => IMG.labFloor = i));
   await Promise.all(jobs);
 }
 
@@ -141,13 +153,21 @@ const ETYPES = {
   demo:   { hp: 3,  sp: 62,  w: 46, h: 100, sc: 1.1, score: 100,  reach: 64,  dmg: 1, wind: 0.4 },
   runner: { hp: 2,  sp: 150, w: 42, h: 92,  sc: 1.0, score: 150,  reach: 58,  dmg: 1, wind: 0.22 },
   brute:  { hp: 34, sp: 50,  w: 84, h: 160, sc: 1.7, score: 2000, reach: 112, dmg: 2, wind: 0.55 },
-  vecna:  { hp: 150, sp: 70, w: 64, h: 160, sc: 1.55, score: 15000, reach: 0, dmg: 2, wind: 0 },
+  vecna:  { hp: 150, sp: 70, w: 64, h: 160, sc: 1.0, score: 15000, reach: 0, dmg: 2, wind: 0 },
 };
 
+// world: 'up' = Mundo del Revés (actos 1-5), 'lab' = Laboratorio HNL (actos 6-10)
 const STAGES = [
-  { name: 'ACTO 1', sub: 'LAS RAICES DEL REVES', len: 5000, tint: 'rgba(0,0,0,0)',      boss: ['brute'],          mix: [['demo', .8], ['runner', .2]] },
-  { name: 'ACTO 2', sub: 'EL BOSQUE DE LIANAS',  len: 5800, tint: 'rgba(60,0,80,.26)',  boss: ['brute', 'brute'], mix: [['demo', .5], ['runner', .4], ['brute', .1]] },
-  { name: 'ACTO 3', sub: 'LA MENTE DE VECNA',    len: 5200, tint: 'rgba(8,0,24,.42)',   boss: ['vecna'],          mix: [['demo', .4], ['runner', .5], ['brute', .1]] },
+  { world: 'up',  name: 'ACTO 1',  sub: 'LAS RAICES DEL REVES',    len: 4600, tint: 'rgba(0,0,0,0)',      boss: ['brute'],          mix: [['demo', .8], ['runner', .2]] },
+  { world: 'up',  name: 'ACTO 2',  sub: 'EL BOSQUE DE LIANAS',     len: 5000, tint: 'rgba(60,0,80,.22)',  boss: ['brute'],          mix: [['demo', .6], ['runner', .35], ['brute', .05]] },
+  { world: 'up',  name: 'ACTO 3',  sub: 'EL PANTANO DE ESPORAS',   len: 5400, tint: 'rgba(30,60,0,.24)',  boss: ['brute', 'brute'], mix: [['demo', .5], ['runner', .4], ['brute', .1]] },
+  { world: 'up',  name: 'ACTO 4',  sub: 'LAS CUEVAS DE CARNE',     len: 5600, tint: 'rgba(90,0,20,.30)',  boss: ['brute', 'brute'], mix: [['demo', .4], ['runner', .5], ['brute', .1]] },
+  { world: 'up',  name: 'ACTO 5',  sub: 'LA MENTE DE VECNA',       len: 5200, tint: 'rgba(8,0,24,.42)',   boss: ['vecna'],          mix: [['demo', .4], ['runner', .5], ['brute', .1]] },
+  { world: 'lab', name: 'ACTO 6',  sub: 'LABORATORIO HAWKINS',     len: 5000, tint: 'rgba(0,20,50,.16)',  boss: ['brute'],          mix: [['demo', .6], ['runner', .4]] },
+  { world: 'lab', name: 'ACTO 7',  sub: 'PASILLOS DE CONTENCION',  len: 5400, tint: 'rgba(0,30,40,.24)',  boss: ['brute', 'brute'], mix: [['demo', .45], ['runner', .45], ['brute', .1]] },
+  { world: 'lab', name: 'ACTO 8',  sub: 'SALA DE EXPERIMENTOS',    len: 5600, tint: 'rgba(110,0,0,.24)',  boss: ['brute', 'brute'], mix: [['demo', .4], ['runner', .5], ['brute', .1]] },
+  { world: 'lab', name: 'ACTO 9',  sub: 'EL SOTANO DE LAB 11',     len: 5800, tint: 'rgba(0,0,20,.42)',   boss: ['brute', 'brute', 'brute'], mix: [['demo', .35], ['runner', .5], ['brute', .15]] },
+  { world: 'lab', name: 'ACTO 10', sub: 'EL ULTIMO PORTAL',        len: 5600, tint: 'rgba(60,0,40,.40)',  boss: ['brute', 'vecna'], mix: [['demo', .35], ['runner', .5], ['brute', .15]] },
 ];
 
 const rngMaker = s => () => (s = (s * 16807) % 2147483647) / 2147483647;
@@ -167,7 +187,7 @@ function buildLevel(n) {
     }
   }
   items.push({ x: st.len - W + 180, y: GROUND - 20, type: 'hp' });
-  for (let x = 650; x < st.len - 900; x += 230 + rng() * 180) {
+  for (let x = 650; x < st.len - 900; x += (230 + rng() * 180) * (1 - Math.min(n, 9) * 0.02)) {
     let r = rng(), type = st.mix[0][0], acc = 0;
     for (const [t, p] of st.mix) { acc += p; if (r < acc) { type = t; break; } }
     spawns.push({ x, type, side: rng() < 0.18 ? 'L' : 'R' });
@@ -364,7 +384,7 @@ function playerPose(p) {
     return ['talk', hot ? 2 : 1];
   }
   if (!p.onGround) return [id === 'steve' ? 'run' : 'walk', 2];
-  if (mv) return id === 'steve' ? ['run', Math.floor(p.animT * 11) % 4] : ['walk', Math.floor(p.animT * 10) % ATLAS[id].anims.walk.n];
+  if (mv) return id === 'steve' ? ['run', Math.floor(p.animT * 11) % 4] : ['walk', Math.floor(p.animT * Math.max(10, ATLAS[id].anims.walk.n * p.c.speed / 90)) % ATLAS[id].anims.walk.n]; // el ritmo sigue a la velocidad: los pies no patinan
   return ['idle', Math.floor(p.animT * 4) % 4];
 }
 
@@ -554,14 +574,17 @@ function updateVecna(e, dt) {
 function endAttack(e) { e.state = 'idle'; e.t = 0; e.cd = e.phase2 ? rnd(0.7, 1.2) : rnd(1.3, 2.1); }
 
 function vecnaPose(e) {
-  const t = e.t;
+  const t = e.t, A = ATLAS.vecna.anims;
+  const walk = ['walk', Math.floor(e.animT * 8) % A.walk.n];
   switch (e.state) {
-    case 'enter': return ['walk', Math.floor(e.animT * 6) % 5];
-    case 'idle': return Math.abs(G.p.x - e.x) < 250 || Math.abs(G.p.x - e.x) > 430 ? ['walk', Math.floor(e.animT * 6) % 5] : ['idle', Math.floor(e.animT * 4) % 4];
-    case 'cast': case 'bind': case 'spike': return ['cast', Math.min(3, Math.floor(t / 0.24))];
-    case 'tend': return ['tend', Math.min(3, Math.floor(t / 0.28))];
-    case 'phase': return ['phase', Math.min(2, Math.floor(t / 0.6))];
-    case 'die': return ['die', Math.min(4, Math.floor(e.dying / 0.6))];
+    case 'enter': return walk;
+    case 'idle': return Math.abs(G.p.x - e.x) < 250 || Math.abs(G.p.x - e.x) > 430 ? walk : ['idle', Math.floor(e.animT * 4) % A.idle.n];
+    case 'cast': return ['cast', Math.min(A.cast.n - 1, Math.floor(t / 0.16))];
+    case 'bind': return ['bind', Math.min(A.bind.n - 1, Math.floor(t / 0.3))];
+    case 'spike': return ['spike', Math.min(A.spike.n - 1, Math.floor(t / 0.3))];
+    case 'tend': return ['tend', Math.min(A.tend.n - 1, Math.floor(t / 0.19))];
+    case 'phase': return ['phase', Math.min(A.phase.n - 1, Math.floor(t / 0.24))];
+    case 'die': return ['die', Math.min(A.die.n - 1, Math.floor(e.dying / 0.6))];
   }
   return ['idle', 0];
 }
@@ -596,7 +619,7 @@ function updatePlay(dt) {
     G.bossDelay -= dt;
     if (G.bossDelay <= 0) {
       const t = G.bossQueue.shift();
-      const e = spawnEnemy(t, G.cam.x + W + 80, -1, t === 'brute' ? 34 + G.stage * 10 : undefined);
+      const e = spawnEnemy(t, G.cam.x + W + 80, -1, t === 'brute' ? 34 + G.stage * 6 : (t === 'vecna' && G.stage >= 9 ? 220 : undefined));
       e.boss = true; if (t === 'brute') { e.state = 'roar'; Snd.roar(); }
       G.bossDelay = 1.6;
     }
@@ -719,32 +742,46 @@ const vign = document.createElement('canvas'); vign.width = W; vign.height = H;
   v.fillStyle = g; v.fillRect(0, 0, W, H);
 })();
 
-function tiled(img, y, h, par, camX) {
+function tiled(img, y, h, par, camX, noMirror = false) {
   const tw = Math.round(h * img.width / img.height * 1); // mantiene proporción
   const off = camX * par, first = Math.floor(off / tw);
   for (let i = first; i <= first + Math.ceil(W / tw) + 1; i++) {
     const x = Math.floor(i * tw - off);
-    if (i & 1) { ctx.save(); ctx.translate(x + tw, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0, tw + 1, h); ctx.restore(); }
+    if ((i & 1) && !noMirror) { ctx.save(); ctx.translate(x + tw, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0, tw + 1, h); ctx.restore(); }
     else ctx.drawImage(img, x, y, tw + 1, h);
   }
 }
 
 function drawBackground(camX, t) {
   const S = H / 1024;
-  tiled(IMG.far, 0, 750 * S, 0.35, camX);
-  // espinas del cielo
+  const lab = STAGES[G.stage || 0].world === 'lab';
+  if (lab) tiled(IMG.labFar, 0, 750 * S, 0.35, camX, true); // el fondo del laboratorio ya es periódico
+  else tiled(IMG.far, 0, 750 * S, 0.35, camX);
+  // espinas del cielo / polvo del laboratorio
   ctx.fillStyle = STAGES[G.stage || 0].tint; ctx.fillRect(0, 0, W, 750 * S);
   for (const s of spores) {
     const x = ((s.x - camX * s.par * 0.6 - t * 6) % W + W) % W, y = (s.y - t * s.v) % GROUND;
     ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 2 + s.ph);
-    ctx.fillStyle = '#ffb0b0'; ctx.fillRect(x, y < 0 ? y + GROUND : y, s.s, s.s);
+    ctx.fillStyle = lab ? '#d8ecff' : '#ffb0b0'; ctx.fillRect(x, y < 0 ? y + GROUND : y, s.s, s.s);
   }
   ctx.globalAlpha = 1;
-  tiled(IMG.floor, 750 * S - 1, H - 750 * S + 1, 1, camX);
+  if (lab) tiled(IMG.labFloor, 750 * S - 1, H - 750 * S + 1, 1, camX);
+  else tiled(IMG.floor, 750 * S - 1, H - 750 * S + 1, 1, camX);
 }
 
 function drawPlatform(pl, camX) {
   const x = Math.round(pl.x - camX), y = pl.y;
+  if (STAGES[G.stage || 0].world === 'lab') { // pasarela metálica del laboratorio
+    const g = ctx.createLinearGradient(0, y, 0, y + 22);
+    g.addColorStop(0, '#6b727c'); g.addColorStop(1, '#2a2e35');
+    ctx.fillStyle = g; ctx.fillRect(x, y, pl.w, 22);
+    ctx.fillStyle = '#aeb6c1'; ctx.fillRect(x, y, pl.w, 3);
+    ctx.fillStyle = '#e8b520'; // franjas de peligro
+    for (let i = 0; i < pl.w; i += 24) { ctx.beginPath(); ctx.moveTo(x + i, y + 8); ctx.lineTo(x + i + 8, y + 8); ctx.lineTo(x + i + 2, y + 16); ctx.lineTo(x + i - 6, y + 16); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle = '#14161a'; ctx.fillRect(x, y + 19, pl.w, 3);
+    ctx.fillStyle = '#4a4f57'; ctx.fillRect(x + 8, y + 22, 6, 10); ctx.fillRect(x + pl.w - 14, y + 22, 6, 10);
+    return;
+  }
   const g = ctx.createLinearGradient(0, y, 0, y + 22);
   g.addColorStop(0, '#5a1420'); g.addColorStop(1, '#1a0508');
   ctx.fillStyle = g; ctx.fillRect(x, y, pl.w, 22);
@@ -1028,8 +1065,8 @@ function drawTitle(t) {
     const sc = id === 'will' ? 1.1 : 1;
     sprite(id, 'walk', Math.floor(t * 8 + i) % ATLAS[id].anims.walk.n, 70 + i * 62, 450, sc);
   });
-  sprite('demogorgon', 'walk', Math.floor(t * 7) % 4, 760, 450, 1.2, true);
-  sprite('vecna', 'idle', Math.floor(t * 4) % 4, 860, 450, 1.5, true);
+  sprite('demogorgon', 'walk', Math.floor(t * 7) % ATLAS.demogorgon.anims.walk.n, 760, 450, 1.2, true);
+  sprite('vecna', 'walk', Math.floor(t * 8) % ATLAS.vecna.anims.walk.n, 865, 450, 1.0, true);
   if (document.body.classList.contains('touch')) {
     text('CRUCETA: MOVER Y APUNTAR   SALTO / FUEGO / BOMBA   II: PAUSA', W / 2, 492, 9, '#ddd', 'center');
     text('GIRA EL MOVIL EN HORIZONTAL', W / 2, 512, 8, '#aaa', 'center');
@@ -1195,7 +1232,7 @@ function frame(now) {
       drawGame();
       const last = G.stage === STAGES.length - 1;
       if (G.clearT > 1.2) {
-        drawEnd(last ? '¡VECNA HA CAIDO!' : 'STAGE CLEAR', '#7dff7d', last ? 'EL MUNDO DEL REVES ESTA A SALVO... POR AHORA' : STAGES[G.stage].name + ' COMPLETADO');
+        drawEnd(last ? '¡VECNA HA CAIDO!' : 'STAGE CLEAR', '#7dff7d', last ? 'HAWKINS Y EL MUNDO DEL REVES ESTAN A SALVO... POR AHORA' : STAGES[G.stage].name + ' COMPLETADO');
         if (tap('Enter', 'Space')) {
           if (last) { G.state = 'title'; openMenu('title'); Snd.setFast(false); }
           else { const hp = G.p; startStage(G.stage + 1); G.p.hp = G.p.maxHp; }

@@ -109,7 +109,53 @@ def cut(crop, run, bg, thr=26, solid=False, boost=1.0):
         print('   (aviso) frame toca el borde vertical del recorte', 'arriba' if bb[1] <= 0 else 'abajo')
     return out.crop(bb)
 
-def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, idle_h=None):
+def sheet_frames(sheet, bg, box, n, thr=26):
+    img = Image.open(os.path.join(SRC, sheet)).convert('RGB')
+    # borra la rejilla del panel: sus píxeles son grises apagados (el personaje no usa grises medios)
+    x0, y0, x1, y1 = box
+    px = img.load()
+    for y in range(max(0, y0 - 16), min(img.height, y1 + 16)):
+        for x in range(max(0, x0 - 16), min(img.width, x1 + 16)):
+            c = px[x, y]
+            if 66 <= min(c) and max(c) <= 112 and max(c) - min(c) <= 20 and c[0] >= c[1] - 2: px[x, y] = bg
+    crop, runs = frames_in(img, box, bg, thr, expect=n)
+    return [thin_clean(fr) for fr in (cut(crop, r, bg, thr) for r in runs) if fr is not None]
+
+def head_x(fr):
+    """ancla de los frames de andar: centro de la cabeza (parte alta), que apenas se mueve en el ciclo;
+    así el cuerpo no tiembla al cambiar de frame como con el centro del recuadro"""
+    a = fr.getchannel('A').load(); w, h = fr.size
+    xs = [x for y in range(int(h * 0.30)) for x in range(w) if a[x, y]]
+    return sum(xs) / len(xs) if xs else w / 2
+
+def thin_clean(fr, passes=2, opening=True):
+    """quita rebabas de 1-2 px (restos de la rejilla pegados al contorno)"""
+    fr = fr.copy()
+    # apertura morfológica: lo que es más fino que 3 px (líneas de rejilla) desaparece; se conserva 1 px de margen al cuerpo
+    a = fr.getchannel('A').point(lambda v: 255 if v > 0 else 0)
+    body = a.filter(ImageFilter.MinFilter(5)).filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MaxFilter(3))
+    ap, bp, fp = a.load(), body.load(), fr.load()
+    for y in range(fr.height if opening else 0):
+        for x in range(fr.width):
+            if ap[x, y] and not bp[x, y]: fp[x, y] = (0, 0, 0, 0)
+    # motas sueltas que han quedado separadas del personaje
+    w, h = fr.size; fp = fr.load(); seen = set()
+    for y in range(h):
+        for x in range(w):
+            if (x, y) in seen or not fp[x, y][3]: continue
+            comp, st = [], [(x, y)]; seen.add((x, y))
+            while st:
+                cx, cy = st.pop(); comp.append((cx, cy))
+                for nx in (cx-1, cx, cx+1):
+                    for ny in (cy-1, cy, cy+1):
+                        if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in seen and fp[nx, ny][3]:
+                            seen.add((nx, ny)); st.append((nx, ny))
+            if len(comp) < 40:
+                for cx, cy in comp: fp[cx, cy] = (0, 0, 0, 0)
+    bb = fr.getbbox()
+    return fr.crop(bb) if bb else fr
+
+def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, idle_h=None, override=None):
     """rows: {anim: (box, expected_count, anchor)}  anchor: 'c' centro | ('l', offset)"""
     img = Image.open(os.path.join(SRC, sheet)).convert('RGB')
     from PIL import ImageDraw
@@ -131,6 +177,16 @@ def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, 
         k = idle_h / h0
         items = [(a, i, fr.resize((max(1, round(fr.width*k)), max(1, round(fr.height*k))), Image.LANCZOS), ax*k) for a, i, fr, ax in items]
         print(f'  escala {name}: x{k:.3f}')
+    if override:  # animaciones reemplazadas por frames de otra hoja, escalados a la altura del idle
+        h_idle = next(fr.height for a, i, fr, _ in items if a == 'idle' and i == 0)
+        for anim, (osheet, obg, obox, on) in override.items():
+            frs = sheet_frames(osheet, obg, obox, on)
+            k = h_idle / sorted(f.height for f in frs)[len(frs)//2]
+            items = [it for it in items if it[0] != anim]
+            for i, fr in enumerate(frs):
+                fr = fr.resize((max(1, round(fr.width*k)), max(1, round(fr.height*k))), Image.NEAREST if k >= 1 else Image.BOX)
+                items.append((anim, i, fr, head_x(fr)))
+            print(f'  {name}.{anim}: {len(frs)} frames nuevos de {osheet}, escala x{k:.3f}')
     half = max(max(ax, fr.width-ax) for _, _, fr, ax in items)
     cw = int(half*2)+2
     ch = max(fr.height for _, _, fr, _ in items)+2
@@ -156,7 +212,7 @@ atlas['will'] = build_char('will', 'will.png', (21, 16, 24), {
     'walk':  ((635, 538, 1450, 690), 6, 'c'),
     'shoot': ((40, 768, 712, 925), 5, ('l', 52)),
     'other': ((735, 764, 1520, 925), 7, 'c'),
-}, idle_h=80, blank=[(40, 490, 215, 540), (625, 490, 790, 540), (40, 712, 250, 764), (745, 712, 975, 764)])
+}, idle_h=80, override={'walk': ('Gemini_Generated_Image_5lqkgz5lqkgz5lqk.jpeg', (26, 25, 31), (60, 88, 1230, 335), 6)}, blank=[(40, 490, 215, 540), (625, 490, 790, 540), (40, 712, 250, 764), (745, 712, 975, 764)])
 atlas['demogorgon'] = build_char('demogorgon', 'demogorgon.png', (19, 18, 25), {
     'idle':   ((45, 452, 595, 595), 4, 'c'),
     'walk':   ((622, 452, 1490, 595), 6, 'c'),
@@ -172,7 +228,7 @@ atlas['eleven'] = build_char('eleven', E, DARK, {
     'walk':  ((1040, 305, 1510, 430), 4, 'c'),
     'power': ((1040, 460, 1510, 590), 4, 'c'),
     'other': ((1040, 640, 1510, 760), 4, 'c'),
-})
+}, override={'walk': ('Gemini_Generated_Image_ohbt8iohbt8iohbt.jpeg', (26, 24, 27), (234, 128, 1326, 356), 8)})
 # --- Mike (WA0027)
 atlas['mike'] = build_char('mike', 'IMG-20261121-WA0027.jpg', DARK, {
     'idle':  ((1045, 160, 1510, 285), 4, 'c'),
@@ -197,41 +253,59 @@ atlas['steve'] = build_char('steve', S, DARK, {
     'hurt':   ((595, 825, 985, 955), 4, 'c'),
     'other':  ((1020, 815, 1440, 955), 4, 'c'),
 })
-# --- Mind Master / Vecna (Sin titulo.png)
-M = 'Sin título.png'
-atlas['vecna'] = build_char('vecna', M, (20, 18, 24), {
-    'idle':   ((30, 330, 360, 445), 4, 'c'),
-    'walk':   ((385, 330, 790, 445), 5, 'c'),
-    'cast':   ((805, 338, 1195, 448), 4, ('l', 45)),
-    'tend':   ((800, 470, 1265, 585), 4, ('l', 45)),
-    'hurt':   ((15, 604, 352, 750), 4, 'c'),
-    'phase':  ((380, 625, 800, 750), 4, 'c'),
-    'die':    ((815, 615, 1265, 750), 5, 'c'),
-}, thr=22, blank=[(800,447,1200,465),(30,306,142,338),(392,306,488,338),(812,306,975,338),
-                      (800,458,965,490),(28,598,100,622),(388,600,598,632),(828,600,940,632)], solid=True, boost=1.45)
+# --- Vecna (vicna.png): hoja nueva de 8 frames por animación, sin reescalado suave (nítido)
+def build_vecna(sheet='vicna.png', bg=(11, 8, 11), target_h=176):
+    img = Image.open(os.path.join(SRC, sheet)).convert('RGB')
+    # fila -> (caja, nº de frames de la hoja, qué frames se usan)
+    ROWS = {
+        'walk':  ((25, 408, 725, 556), 8, range(8)),
+        'cast':  ((975, 83, 1765, 204), 8, range(6)),    # telekinesis (sin las rocas: las dibuja el juego)
+        'bind':  ((975, 234, 1765, 344), 8, range(3)),   # control mental (sin la silueta de la víctima)
+        'spike': ((975, 375, 1765, 486), 8, range(3)),   # agacharse; los pinchos los dibuja el juego
+        'tend':  ((975, 518, 1765, 632), 8, range(6)),   # zarcillos
+        'phase': ((975, 662, 1765, 798), 8, range(8)),   # cambio de fase
+    }
+    frames = {}
+    for anim, (box, n, use) in ROWS.items():
+        crop, runs = frames_in(img, box, bg, 22, expect=n)
+        if len(runs) != n: print(f'  !! vecna.{anim}: esperaba {n}, detecte {len(runs)}')
+        got = []
+        for i in use:
+            fr = cut(crop, runs[i], bg, 22, solid=True)
+            if fr is not None: got.append(fr)
+        # mismo tamaño de cuerpo en todas las filas: el primer frame (de pie) mide target_h
+        k = target_h / got[0].height
+        scaled = []
+        for fr in got:
+            fr = thin_clean(fr, 0, opening=False)
+            scaled.append(fr.resize((max(1, round(fr.width*k)), max(1, round(fr.height*k))), Image.NEAREST))
+        frames[anim] = scaled
+        print(f'  vecna.{anim}: {len(scaled)} frames, escala x{k:.2f}')
+    frames['idle'] = [frames['cast'][0]] * 4
+    frames['die'] = [frames['spike'][0], frames['spike'][1], frames['spike'][2], frames['spike'][2], frames['spike'][2]]
+    # ancla = centro de los pies (último 22% del frame), para que no "baile" al cambiar de frame
+    def feet_x(fr):
+        a = fr.getchannel('A'); w, h = fr.size; ap = a.load()
+        xs = [x for y in range(int(h*0.78), h) for x in range(w) if ap[x, y]]
+        return sum(xs)/len(xs) if xs else w/2
+    order = ['idle', 'walk', 'cast', 'bind', 'spike', 'tend', 'phase', 'die']
+    items = [(an, i, fr, feet_x(fr)) for an in order for i, fr in enumerate(frames[an])]
+    half = max(max(ax, fr.width-ax) for _, _, fr, ax in items)
+    cw = int(half*2)+2
+    ch = max(fr.height for _, _, fr, _ in items)+2
+    maxn = max(len(frames[a]) for a in order)
+    atlas_img = Image.new('RGBA', (cw*maxn, ch*len(order)), (0, 0, 0, 0))
+    anims = {}
+    for r, an in enumerate(order):
+        anims[an] = {'row': r, 'n': len(frames[an])}
+        for c, fr in enumerate(frames[an]):
+            atlas_img.paste(fr, (int(c*cw + cw/2 - feet_x(fr)), r*ch + ch - fr.height - 1), fr)
+    atlas_img.save(os.path.join(OUT, 'vecna.png'))
+    print(f'vecna: cell {cw}x{ch}', {k: v['n'] for k, v in anims.items()})
+    return {'img': 'assets/vecna.png', 'cw': cw, 'ch': ch, 'anims': anims}
+atlas['vecna'] = build_vecna()
 
 with open(JS, 'w') as f:
     f.write('window.ATLAS = ' + json.dumps(atlas, indent=1) + ';\n')
 
-# ---------------- fondo ----------------
-bg = Image.open(os.path.join(SRC, 'IMG-20261121-WA0022.jpg')).convert('RGB')
-# tapar a Will: copiar una franja limpia de la propia imagen, con bordes suavizados
-def feather_patch(bg, dst, dx, fe=34, bottom_soft=False):
-    src = bg.crop((dst[0]+dx, dst[1], dst[2]+dx, dst[3]))
-    mask = Image.new('L', src.size, 255)
-    mp = mask.load()
-    for y in range(src.height):
-        for x in range(src.width):
-            d = min(x, src.width-1-x, y)
-            if bottom_soft: d = min(d, src.height-1-y)
-            mp[x, y] = int(255*min(1, d/fe))
-    bg.paste(src, (dst[0], dst[1]), mask)
-# fusil: franja limpia de la izquierda
-feather_patch(bg, (700, 520, 975, 680), -480, fe=30, bottom_soft=True)
-# cuerpo de Will: franja (ya limpia) de la derecha
-feather_patch(bg, (515, 355, 775, 772), 270)
-bg.save(os.path.join(OUT, 'bg_full.png'))
-GROUND = 750
-bg.crop((0, 0, 1536, GROUND)).save(os.path.join(OUT, 'bg_far.png'))
-bg.crop((0, GROUND, 1536, 1024)).save(os.path.join(OUT, 'bg_floor.png'))
-print('fondo ok')
+# El fondo ahora lo genera tools/build_bg.py

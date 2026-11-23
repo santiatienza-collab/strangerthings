@@ -64,7 +64,7 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 4
+    "n": 8
    },
    "power": {
     "row": 2,
@@ -155,8 +155,8 @@ window.ATLAS = {
  },
  "vecna": {
   "img": "assets/vecna.png",
-  "cw": 160,
-  "ch": 128,
+  "cw": 239,
+  "ch": 190,
   "anims": {
    "idle": {
     "row": 0,
@@ -164,26 +164,30 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 5
+    "n": 8
    },
    "cast": {
     "row": 2,
-    "n": 4
+    "n": 6
+   },
+   "bind": {
+    "row": 3,
+    "n": 3
+   },
+   "spike": {
+    "row": 4,
+    "n": 3
    },
    "tend": {
-    "row": 3,
-    "n": 4
-   },
-   "hurt": {
-    "row": 4,
-    "n": 4
+    "row": 5,
+    "n": 6
    },
    "phase": {
-    "row": 5,
-    "n": 4
+    "row": 6,
+    "n": 8
    },
    "die": {
-    "row": 6,
+    "row": 7,
     "n": 5
    }
   }

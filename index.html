@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#a01428">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stranger Slug">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Stranger Slug – Shoot &amp; Run en el Mundo del Revés</title>
 <link rel="icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,22 +18,28 @@
   :root { --u: 1vh; }
   @supports (height: 1dvh) { :root { --u: 1dvh; } }
   html, body { margin: 0; height: 100%; background: #07010a; overflow: hidden; overscroll-behavior: none; }
-  body { display: flex; align-items: center; justify-content: center; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  body { display: flex; align-items: center; justify-content: center; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
   canvas {
     width: min(100vw, calc(100vh * 16 / 9));
     height: min(100vh, calc(100vw * 9 / 16));
-    background: #000; display: block; outline: none; touch-action: none;
+    background: #000; display: block; outline: none; touch-action: none; image-rendering: pixelated; image-rendering: crisp-edges;
   }
   @supports (height: 1dvh) {
     canvas { width: min(100vw, calc(100dvh * 16 / 9)); height: min(100dvh, calc(100vw * 9 / 16)); }
   }
 
   /* ---- controles táctiles (solo con body.touch: móviles y tablets Android) ---- */
-  #touch, #rotate, #install { display: none; }
+  #touch, #rotate, #install, #ioshint { display: none; }
   body.touch #touch { display: block; position: fixed; inset: 0; z-index: 5; pointer-events: none; touch-action: none; }
-  #touch > * { pointer-events: auto; touch-action: none; }
+  #touch > * { pointer-events: auto; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  #touch button { -webkit-appearance: none; appearance: none; padding: 0; margin: 0; font-family: monospace; }
+  /* zona izquierda: la cruceta aparece bajo el pulgar (flotante) */
+  #lzone { position: absolute; left: 0; top: calc(var(--u) * 24); bottom: 0; width: 46vw; }
+  #haptic { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
 
-  #dpad { position: absolute; left: calc(var(--u) * 4); bottom: calc(var(--u) * 5); width: calc(var(--u) * 42); height: calc(var(--u) * 42); }
+  #dpad { position: absolute; left: calc(var(--u) * 4 + env(safe-area-inset-left, 0px)); bottom: calc(var(--u) * 5 + env(safe-area-inset-bottom, 0px)); pointer-events: none; width: calc(var(--u) * 42); height: calc(var(--u) * 42); }
+  #dpad.float { left: var(--px); top: var(--py); bottom: auto; }
+  #dpad::before { content: ''; position: absolute; inset: calc(var(--u) * 6); border-radius: 50%; border: calc(var(--u) * .4) dashed rgba(255,255,255,.14); }
   #dpad i, .tb {
     position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
     background: rgba(255, 255, 255, .10); border: calc(var(--u) * .5) solid rgba(255, 255, 255, .38);
@@ -45,17 +56,24 @@
   #dpad [data-d=left]::before  { clip-path: polygon(100% 0, 100% 100%, 0 50%); }
   #dpad [data-d=right]::before { clip-path: polygon(0 0, 100% 50%, 0 100%); }
 
-  .tb { border-radius: 50%; }
-  .tb[data-a=fire] { right: calc(var(--u) * 4);  bottom: calc(var(--u) * 5);  width: calc(var(--u) * 23); height: calc(var(--u) * 23); }
-  .tb[data-a=jump] { right: calc(var(--u) * 15); bottom: calc(var(--u) * 29); width: calc(var(--u) * 20); height: calc(var(--u) * 20); }
-  .tb[data-a=gren] { right: calc(var(--u) * 31); bottom: calc(var(--u) * 8);  width: calc(var(--u) * 18); height: calc(var(--u) * 18); }
+  .tb { border-radius: 50%; transition: transform .06s; }
+  .tb::after { content: ''; position: absolute; inset: calc(var(--u) * -1.5); border-radius: 50%; } /* zona de toque más grande */
+  .tb.on { transform: scale(.93); }
+  .tb[data-a=fire] { right: calc(var(--u) * 4 + env(safe-area-inset-right, 0px));  bottom: calc(var(--u) * 5 + env(safe-area-inset-bottom, 0px));  width: calc(var(--u) * 23); height: calc(var(--u) * 23); }
+  .tb[data-a=jump] { right: calc(var(--u) * 15 + env(safe-area-inset-right, 0px)); bottom: calc(var(--u) * 29 + env(safe-area-inset-bottom, 0px)); width: calc(var(--u) * 20); height: calc(var(--u) * 20); }
+  .tb[data-a=gren] { right: calc(var(--u) * 31 + env(safe-area-inset-right, 0px)); bottom: calc(var(--u) * 8 + env(safe-area-inset-bottom, 0px));  width: calc(var(--u) * 18); height: calc(var(--u) * 18); }
   #dpad i.on, .tb.on, #tpause.on { background: rgba(255, 70, 70, .38); border-color: rgba(255, 150, 150, .8); color: #fff; }
-  #tpause { right: calc(var(--u) * 2); top: calc(var(--u) * 15); width: calc(var(--u) * 11); height: calc(var(--u) * 11); font-size: calc(var(--u) * 3.4); }
+  #tpause { right: calc(var(--u) * 2 + env(safe-area-inset-right, 0px)); top: calc(var(--u) * 15); width: calc(var(--u) * 11); height: calc(var(--u) * 11); font-size: calc(var(--u) * 3.4); }
 
   #install {
-    position: fixed; z-index: 6; left: calc(var(--u) * 2); top: calc(var(--u) * 21); padding: calc(var(--u) * 1.6) calc(var(--u) * 2.4);
+    position: fixed; z-index: 6; left: calc(var(--u) * 2 + env(safe-area-inset-left, 0px)); top: calc(var(--u) * 21); padding: calc(var(--u) * 1.6) calc(var(--u) * 2.4);
     background: rgba(160, 20, 40, .55); border: 2px solid rgba(255, 255, 255, .5); border-radius: 8px;
     color: #fff; font: 700 calc(var(--u) * 2.6) monospace;
+  }
+  #ioshint {
+    display: none; position: fixed; z-index: 6; left: 50%; bottom: calc(var(--u) * 3); transform: translateX(-50%); max-width: 80vw; box-sizing: border-box;
+    padding: calc(var(--u) * 1.6) calc(var(--u) * 3); background: rgba(10, 2, 14, .82); border: 2px solid rgba(255, 255, 255, .45); border-radius: 10px;
+    color: #fff; font: 700 calc(var(--u) * 2.6) monospace; text-align: center; line-height: 1.4; pointer-events: auto;
   }
   /* aviso para girar el móvil */
   @media (orientation: portrait) {
@@ -68,14 +86,17 @@
 <canvas id="c" width="960" height="540" tabindex="0"></canvas>
 
 <div id="touch">
+  <div id="lzone"></div>
   <div id="dpad"><i data-d="up"></i><i data-d="left"></i><i data-d="right"></i><i data-d="down"></i></div>
   <button class="tb" data-a="jump" type="button">SALTO</button>
   <button class="tb" data-a="fire" type="button">FUEGO</button>
   <button class="tb" data-a="gren" type="button">BOMBA</button>
   <button class="tb" id="tpause" type="button" aria-label="Pausa">II</button>
+  <label id="haptic" aria-hidden="true"><input type="checkbox" switch></label>
 </div>
 <div id="rotate">GIRA EL MOVIL<br>PARA JUGAR (HORIZONTAL)</div>
 <button id="install" type="button">INSTALAR APP</button>
+<div id="ioshint">PANTALLA COMPLETA:<br>pulsa <b>Compartir</b> &#x2B06;&#xFE0E; y <b>Añadir a pantalla de inicio</b><br><u id="ioshintx">CERRAR</u></div>
 
 <script src="js/atlas.js"></script>
 <script src="js/game.js"></script>
