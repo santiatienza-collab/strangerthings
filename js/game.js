@@ -1377,7 +1377,7 @@ function drawTitle(t) {
   // desfile de personajes
   const cs = ['steve', 'dustin', 'lucas', 'mike', 'eleven', 'will']; // Will va el primero (a la derecha, mirando hacia delante)
   cs.forEach((id, i) => {
-    sprite(id, 'walk', Math.floor(t * 8 + i) % ATLAS[id].anims.walk.n, 36 + i * 46, 450, 0.8); // a la izquierda, sin tapar el menú
+    sprite(id, 'walk', Math.floor(t * 8 + i) % ATLAS[id].anims.walk.n, 66 + i * 44, 450, 0.8); // a la izquierda, sin tapar el menú
   });
   sprite('demogorgon', 'walk', Math.floor(t * 7) % ATLAS.demogorgon.anims.walk.n, 760, 450, 1.2, true);
   sprite('vecna', 'idle', 0, 865, 450 + Math.sin(t * 2) * 1.5, 1.0, true); // en la portada espera quieto; solo camina en el juego
