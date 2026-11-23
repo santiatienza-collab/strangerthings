@@ -1187,15 +1187,7 @@ function drawEnemy(e, camX) {
 const ARM = { mike: ['#b9a37a', '#f0b890'], dustin: ['#2c4a8c', '#f2b88e'] };
 const hasAimPose = id => id === 'will' || id === 'lucas' || id === 'mike' || id === 'dustin';
 function drawCarryBack(p, x) { /* nadie lleva nada a la espalda: todos usan tirachinas */ }
-function drawCarryFront(p, x) { // el tirachinas asoma del bolsillo de atrás (todos menos Eleven y Steve)
-  if (p.dead || p.shootT > 0 || p.aimT > 0 || !['mike', 'lucas', 'will', 'dustin'].includes(p.id)) return;
-  const f = p.face, c = ctx, hy = p.y - (p.crouch ? 28 : 42), col = p.id === 'mike' ? '#2f6fb0' : '#8a5a2b';
-  c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
-  c.translate(x - f * 11, hy); c.rotate(-f * 0.5);
-  c.strokeStyle = '#120a0c'; c.lineWidth = 5.4; c.beginPath(); c.moveTo(0, 6); c.lineTo(0, -2); c.moveTo(0, -2); c.lineTo(-4.5, -9); c.moveTo(0, -2); c.lineTo(4.5, -9); c.stroke();
-  c.strokeStyle = col; c.lineWidth = 3; c.beginPath(); c.moveTo(0, 6); c.lineTo(0, -2); c.moveTo(0, -2); c.lineTo(-4.5, -9); c.moveTo(0, -2); c.lineTo(4.5, -9); c.stroke();
-  c.restore();
-}
+function drawCarryFront(p, x) { /* el tirachinas solo se ve al disparar (lo trae la pose de disparo del sprite) */ }
 function drawWeapon(p, x) {
   const id = p.id, c = ctx;
   if (p.dead || p.hurtT > 0.2) return;
