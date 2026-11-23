@@ -141,10 +141,10 @@ function sprite(name, anim, frame, x, y, scale = 1, flip = false, alpha = 1) {
 
 /* ------------------------------------------------------------- game data */
 const CHARS = {
-  will:   { name: 'WILL',   hp: 6, speed: 190, rate: 0.22, dmg: 1.2, bspeed: 720, kind: 'bullet', sc: 1.1,  tag: 'RIFLE',       stats: [3, 3, 4] },
-  eleven: { name: 'ELEVEN', hp: 5, speed: 185, rate: 0.34, dmg: 1.7, bspeed: 520, kind: 'psy',    sc: 1.0,  tag: 'TELEQUINESIS', pierce: 2, stats: [2, 3, 5] },
-  mike:   { name: 'MIKE',   hp: 5, speed: 220, rate: 0.13, dmg: 0.7, bspeed: 660, kind: 'pellet', sc: 1.0,  tag: 'TIRACHINAS',  stats: [2, 5, 3] },
-  dustin: { name: 'DUSTIN', hp: 6, speed: 195, rate: 0.38, dmg: 0.8, bspeed: 570, kind: 'flare',  sc: 1.0,  tag: 'BENGALAS x3', stats: [3, 3, 3] },
+  will:   { name: 'WILL',   hp: 6, speed: 190, rate: 0.22, dmg: 1.2, bspeed: 720, kind: 'bullet', heat: 0.115, sc: 1.1,  tag: 'RIFLE CAZA',   stats: [3, 3, 4] },
+  eleven: { name: 'ELEVEN', hp: 5, speed: 185, rate: 0.34, dmg: 1.7, bspeed: 520, kind: 'psy',    heat: 0.20, sc: 1.0,  tag: 'TELEQUINESIS', pierce: 2, stats: [2, 3, 5] },
+  mike:   { name: 'MIKE',   hp: 5, speed: 220, rate: 0.13, dmg: 0.7, bspeed: 660, kind: 'pellet', heat: 0.07, sc: 1.0,  tag: 'WRIST ROCKET', stats: [2, 5, 3] },
+  dustin: { name: 'DUSTIN', hp: 6, speed: 195, rate: 0.38, dmg: 0.8, bspeed: 570, kind: 'flare',  heat: 0.20, sc: 1.0,  tag: 'BENGALAS x3', stats: [3, 3, 3] },
   steve:  { name: 'STEVE',  hp: 8, speed: 225, rate: 0.45, dmg: 3.0, melee: true,   sc: 0.95, tag: 'BATE CLAVOS', stats: [5, 4, 4] },
 };
 const ORDER = ['will', 'eleven', 'mike', 'dustin', 'steve'];
@@ -170,6 +170,15 @@ const STAGES = [
   { world: 'lab', name: 'ACTO 10', sub: 'EL ULTIMO PORTAL',        len: 5600, tint: 'rgba(60,0,40,.40)',  boss: ['brute', 'vecna'], mix: [['demo', .35], ['runner', .5], ['brute', .15]] },
 ];
 
+// objetos lanzables: dmg directo, aoe = radio de explosión, cd = retraso que provoca a los enemigos afectados
+const PROPS = {
+  chair:        { name: 'SILLA',   dmg: 7, aoe: 0,   cd: 0 },
+  extinguisher: { name: 'EXTINTOR', dmg: 3, aoe: 105, cd: 1.6 },
+  rock:         { name: 'ROCA',    dmg: 6, aoe: 0,   cd: 0 },
+  barrel:       { name: 'BIDON',   dmg: 6, aoe: 125, cd: 0.8 },
+};
+const PROP_WORLD = { up: ['rock', 'barrel'], lab: ['chair', 'extinguisher'] };
+
 const rngMaker = s => () => (s = (s * 16807) % 2147483647) / 2147483647;
 
 function buildLevel(n) {
@@ -187,6 +196,7 @@ function buildLevel(n) {
     }
   }
   items.push({ x: st.len - W + 180, y: GROUND - 20, type: 'hp' });
+  const kinds = PROP_WORLD[st.world];
   for (let x = 650; x < st.len - 900; x += (230 + rng() * 180) * (1 - Math.min(n, 9) * 0.02)) {
     let r = rng(), type = st.mix[0][0], acc = 0;
     for (const [t, p] of st.mix) { acc += p; if (r < acc) { type = t; break; } }
@@ -194,6 +204,8 @@ function buildLevel(n) {
     if (n > 0 && rng() < 0.3) spawns.push({ x: x + 40, type: 'demo', side: 'R' });
   }
   spawns.sort((a, b) => a.x - b.x);
+  // objetos del escenario que se pueden coger y lanzar a los enemigos
+  for (let x = 560 + rng() * 200; x < st.len - 1000; x += 520 + rng() * 420) items.push({ x, y: GROUND - 18, type: 'prop', prop: kinds[Math.floor(rng() * kinds.length)] });
   return { len: st.len, plats, spawns, items };
 }
 
@@ -202,7 +214,7 @@ const G = {
   state: 'loading', t: 0, sel: 0, charId: 'will', stage: 0, score: 0, lives: 3,
   p: null, cam: { x: 0, max: 0 }, plats: [], enemies: [], bullets: [], eproj: [], haz: [], gren: [],
   items: [], parts: [], rings: [], spawns: [], si: 0, bossSpawned: false, shake: 0, banner: 0,
-  clearT: 0, flash: 0, noEnemyT: 0, bossDelay: 0, bossQueue: [], bossBanner: 0,
+  clearT: 0, flash: 0, noEnemyT: 0, bossDelay: 0, bossQueue: [], bossBanner: 0, props: [],
 };
 const spores = Array.from({ length: 46 }, (_, i) => ({ x: Math.random() * W, y: Math.random() * GROUND, s: 1 + Math.random() * 2, v: 8 + Math.random() * 18, par: 0.3 + Math.random() * 0.5, ph: Math.random() * 6 }));
 
@@ -210,18 +222,18 @@ function newPlayer(id, x) {
   const c = CHARS[id];
   return { id, c, x, y: GROUND, vx: 0, vy: 0, face: 1, hp: c.hp, maxHp: c.hp, onGround: true, crouch: false,
     shootCd: 0, shootT: 0, hurtT: 0, inv: 0, dead: false, deadT: 0, animT: 0, wpn: 1, gren: 3, gCd: 0,
-    bindT: 0, melee: 0, meleeHit: new Set(), drop: 0, w: 34, h: 84, kx: 0 };
+    bindT: 0, heat: 0, coolT: 0, jam: 0, holdT: 0, held: null, melee: 0, meleeHit: new Set(), drop: 0, w: 34, h: 84, kx: 0 };
 }
 
 function startStage(n) {
   const lv = buildLevel(n);
   G.stage = n; G.plats = lv.plats; G.spawns = lv.spawns; G.items = lv.items.map(i => ({ ...i, t: Math.random() * 6 }));
-  G.enemies = []; G.bullets = []; G.eproj = []; G.haz = []; G.gren = []; G.parts = []; G.rings = [];
+  G.enemies = []; G.bullets = []; G.eproj = []; G.haz = []; G.gren = []; G.props = []; G.parts = []; G.rings = [];
   G.si = 0; G.bossSpawned = false; G.bossQueue = []; G.cam = { x: 0, max: lv.len - W }; G.shake = 0;
   G.banner = 3.2; G.noEnemyT = 0;
   const keep = G.p;
   G.p = newPlayer(G.charId, 80);
-  if (keep && n > 0) { G.p.wpn = keep.wpn; G.p.gren = Math.max(3, keep.gren); }
+  if (keep && n > 0) { G.p.wpn = keep.wpn; G.p.gren = Math.max(3, keep.gren); G.p.held = keep.held; }
   Snd.setFast(false);
   G.state = 'play';
 }
@@ -255,7 +267,7 @@ function aimDir(p) {
 
 function fire(p) {
   const c = p.c, lv = p.wpn;
-  p.shootCd = c.rate * (lv >= 2 ? 0.8 : 1);
+  p.shootCd = c.rate * (lv >= 2 ? 0.8 : 1) * (c.melee ? 1 : 1 + Math.min(0.6, p.holdT * 0.35)); // mantener pulsado = más lento
   p.shootT = 0.24;
   if (c.melee) {
     p.melee = 0.36; p.meleeHit = new Set(); Snd.swing(); p.shootCd = 0.4; return;
@@ -269,7 +281,7 @@ function fire(p) {
   else if (lv >= 3) offs = [-0.05, 0.05];
   else offs = [0];
   if (p.id === 'eleven' && lv >= 3) offs = [-0.12, 0, 0.12];
-  const base = Math.atan2(d.y, d.x);
+  const base = Math.atan2(d.y, d.x) + (Math.random() - 0.5) * 2 * Math.min(0.17, p.holdT * 0.085); // y menos preciso
   for (const o of offs) {
     const a = base + o;
     G.bullets.push({ x: mx, y: my, vx: Math.cos(a) * c.bspeed, vy: Math.sin(a) * c.bspeed, dmg, kind: c.kind,
@@ -277,6 +289,15 @@ function fire(p) {
   }
   if (c.kind === 'psy') Snd.psy(); else Snd.shoot();
   burst(mx, my, 3, '#ffd34d', 80, 0.15, 0, 2);
+  // calor: el arma se sobrecalienta si no dejas de disparar
+  p.heat += c.heat * (1 - 0.12 * (lv - 1)); p.coolT = 0.3;
+  if (p.heat >= 1) { p.heat = 1; p.jam = 1.4; p.holdT = 0; Snd.rock(); burst(mx, my, 10, '#999', 70, 0.6, -20, 3); }
+}
+
+function throwProp(p) {
+  const up = down(...K.up);
+  G.props.push({ kind: p.held, x: p.x + p.face * 18, y: p.y - 76, vx: p.face * (up ? 170 : 420) + p.vx * 0.3, vy: up ? -640 : -240, rot: 0, t: 0 });
+  p.held = null; Snd.swing();
 }
 
 function throwGrenade(p) {
@@ -353,8 +374,13 @@ function updatePlayer(dt) {
   }
   p.x = Math.max(G.cam.x + 26, Math.min(G.cam.x + W - 26, p.x));
 
-  if (down(...K.fire) && p.shootCd <= 0 && p.melee <= 0) fire(p);
-  if (tap(...K.gren)) throwGrenade(p);
+  const firing = down(...K.fire);
+  if (p.jam > 0) { p.jam -= dt; if (p.jam <= 0) { p.heat = 0.3; Snd.ok(); } }
+  else if (firing && !p.c.melee) p.holdT = Math.min(2, p.holdT + dt);
+  if (!firing || p.jam > 0) p.holdT = Math.max(0, p.holdT - dt * 3);
+  if (p.jam <= 0) { if (p.coolT > 0) p.coolT -= dt; else p.heat = Math.max(0, p.heat - 0.45 * dt); }
+  if (firing && p.shootCd <= 0 && p.melee <= 0 && p.jam <= 0) fire(p);
+  if (tap(...K.gren)) { if (p.held) throwProp(p); else throwGrenade(p); }
 
   if (p.melee > 0) {
     p.melee -= dt;
@@ -712,17 +738,45 @@ function updatePlay(dt) {
     }
   }
   G.gren = G.gren.filter(g => !g.dead);
+  // objetos lanzados
+  for (const o of G.props) {
+    const D = PROPS[o.kind];
+    o.t += dt; o.vy += 1500 * dt; o.x += o.vx * dt; o.y += o.vy * dt; o.rot += dt * (o.vx >= 0 ? 11 : -11);
+    let hit = null;
+    for (const e of G.enemies) if (!e.dead && !e.dying && ovl({ x: o.x - 15, y: o.y - 15, w: 30, h: 30 }, ebox(e))) { hit = e; break; }
+    if (!hit && o.y < GROUND - 4 && o.t < 2.2) continue;
+    o.dead = true;
+    const gy = Math.min(o.y, GROUND - 6);
+    if (D.aoe) {
+      const boom = o.kind === 'barrel';
+      burst(o.x, gy, boom ? 34 : 22, boom ? '#ff9a2a' : '#ffffff', 280, 0.7);
+      for (let i = 0; i < 14; i++) { const l = rnd(0.8, 1.5); G.parts.push({ x: o.x + rnd(-24, 24), y: gy - rnd(0, 30), vx: rnd(-40, 40), vy: rnd(-70, -15), life: l, max: l, color: boom ? '#4d3f3f' : '#e8f0f4', g: -10, size: 0, smoke: true, r: 12, gr: 34 }); }
+      if (boom) { G.rings.push({ x: o.x, y: gy, t: 0 }); Snd.boom(); G.shake = Math.max(G.shake, 9); } else { Snd.spike(); G.shake = Math.max(G.shake, 4); }
+      for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - o.x, (e.y - e.h / 2) - gy) < D.aoe + e.w / 2) {
+        damageEnemy(e, D.dmg, Math.sign(e.x - o.x) || 1);
+        if (!e.boss) e.cd = Math.max(e.cd || 0, D.cd); // aturdidos: tardan en volver a atacar
+      }
+      for (const q of G.eproj) if (Math.hypot(q.x - o.x, q.y - o.y) < D.aoe) q.dead = true;
+    } else {
+      burst(o.x, gy, 14, o.kind === 'rock' ? '#8a8078' : '#8d949c', 230, 0.5);
+      Snd.rock();
+      if (hit) damageEnemy(hit, D.dmg, Math.sign(hit.x - o.x) || 1);
+    }
+  }
+  G.props = G.props.filter(o => !o.dead);
   for (const r of G.rings) r.t += dt;
   G.rings = G.rings.filter(r => r.t < 0.6);
 
   // items
   for (const it of G.items) {
     it.t += dt;
+    if (it.type === 'prop' && p.held) continue; // solo se lleva un objeto
     if (!p.dead && Math.abs(it.x - p.x) < 28 && Math.abs((it.y) - (p.y - 40)) < 60) {
       it.got = true; Snd.pick();
       if (it.type === 'hp') p.hp = Math.min(p.maxHp, p.hp + 2);
       if (it.type === 'gren') p.gren += 3;
       if (it.type === 'wpn') p.wpn = Math.min(3, p.wpn + 1);
+      if (it.type === 'prop') { p.held = it.prop; burst(it.x, it.y, 6, '#fff', 120, 0.3); it.got = true; continue; }
       G.score += 50; burst(it.x, it.y, 10, '#ffe27a', 160, 0.5);
     }
   }
@@ -818,6 +872,30 @@ function drawGrenade(c, sc = 1) {
   c.restore();
 }
 
+function drawProp(kind, sc = 1) {
+  const c = ctx; c.save(); c.scale(sc, sc); c.lineJoin = 'round'; c.lineWidth = 2; c.strokeStyle = '#120a0c';
+  if (kind === 'chair') { // silla de oficina con ruedas
+    c.fillStyle = '#2e3a52'; c.fillRect(-9, -22, 18, 24); c.strokeRect(-9, -22, 18, 24);           // respaldo
+    c.fillStyle = '#3d4d6e'; c.fillRect(-12, 2, 24, 7); c.strokeRect(-12, 2, 24, 7);               // asiento
+    c.fillStyle = '#666d77'; c.fillRect(-2, 9, 4, 8);                                               // columna
+    c.strokeStyle = '#666d77'; c.lineWidth = 3; c.beginPath(); c.moveTo(-13, 19); c.lineTo(0, 16); c.lineTo(13, 19); c.stroke();
+    c.fillStyle = '#111'; c.fillRect(-15, 18, 5, 5); c.fillRect(10, 18, 5, 5);
+  } else if (kind === 'extinguisher') {
+    c.fillStyle = '#d02030'; c.fillRect(-8, -14, 16, 30); c.strokeRect(-8, -14, 16, 30);
+    c.fillStyle = '#e8e8e8'; c.fillRect(-8, -2, 16, 7);
+    c.fillStyle = '#222'; c.fillRect(-3, -20, 7, 6); c.fillRect(-9, -22, 9, 4);                     // válvula y palanca
+    c.strokeStyle = '#222'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(4, -17); c.quadraticCurveTo(14, -14, 11, -2); c.stroke();
+  } else if (kind === 'rock') {
+    c.fillStyle = '#7d756d'; c.beginPath(); c.moveTo(-14, 10); c.lineTo(-10, -6); c.lineTo(0, -13); c.lineTo(11, -7); c.lineTo(15, 10); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#9b938a'; c.fillRect(-4, -8, 8, 5);
+  } else { // bidón
+    c.fillStyle = '#9a4a1c'; c.fillRect(-11, -16, 22, 32); c.strokeRect(-11, -16, 22, 32);
+    c.fillStyle = '#6e3210'; c.fillRect(-11, -8, 22, 3); c.fillRect(-11, 5, 22, 3);
+    c.fillStyle = '#ffb020'; c.beginPath(); c.moveTo(0, -5); c.lineTo(5, 3); c.lineTo(-5, 3); c.closePath(); c.fill();
+  }
+  c.restore();
+}
+
 function drawItem(it, camX) {
   const x = Math.round(it.x - camX), y = Math.round(it.y + Math.sin(it.t * 3) * 4);
   ctx.save(); ctx.translate(x, y);
@@ -827,6 +905,9 @@ function drawItem(it, camX) {
     ctx.shadowBlur = 0; ctx.strokeStyle = '#a8671a'; ctx.lineWidth = 2;
     for (let i = -4; i <= 4; i += 8) { ctx.beginPath(); ctx.moveTo(i, -12); ctx.lineTo(i, 12); ctx.moveTo(-12, i); ctx.lineTo(12, i); ctx.stroke(); }
     ctx.fillStyle = '#fff'; ctx.fillRect(-3, -3, 6, 6);
+  } else if (it.type === 'prop') {
+    ctx.shadowColor = '#9fe0ff'; ctx.shadowBlur = 10; drawProp(it.prop, 1.25);
+    ctx.shadowBlur = 0; ctx.fillStyle = '#9fe0ff'; ctx.font = `7px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(PROPS[it.prop].name, 0, 28);
   } else if (it.type === 'gren') {
     drawGrenade(ctx, 1.3);
     ctx.shadowBlur = 0; ctx.fillStyle = '#ffd34d'; ctx.font = `8px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('+3', 0, 26);
@@ -946,6 +1027,47 @@ function drawEnemy(e, camX) {
   sprite('demogorgon', anim, f, x, e.y, e.sc, flip, blink);
 }
 
+// armas inspiradas en la serie, dibujadas sobre el sprite y orientadas hacia donde apunta
+function drawWeapon(p, x) {
+  const id = p.id, c = ctx;
+  if (p.dead || p.hurtT > 0.2) return;
+  const kick = Math.max(0, (p.shootT - 0.16) / 0.08) * 3;           // retroceso al disparar
+  const hx = x + p.face * (10 - kick), hy = p.y - (p.crouch ? 36 : 52);
+  if (id === 'steve') { // bate con clavos: solo se ve al golpear (en reposo va a la espalda, ya dibujado)
+    if (p.melee <= 0) return;
+    const prog = 1 - p.melee / 0.36, ang = -1.5 + 2.7 * Math.min(1, prog * 1.5);
+    c.save(); c.translate(x + p.face * 12, hy - 4); c.scale(p.face, 1); c.rotate(ang);
+    c.fillStyle = '#8a5a2b'; c.strokeStyle = '#2a170a'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(0, -3); c.lineTo(34, -5.5); c.lineTo(46, -6.5); c.lineTo(46, 6.5); c.lineTo(34, 5.5); c.lineTo(0, 3); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#d6dbe0'; for (const nx of [30, 36, 42]) { c.fillRect(nx, -9, 2, 4); c.fillRect(nx, 5, 2, 4); }
+    c.restore(); return;
+  }
+  if (id === 'eleven') { // sin arma: solo el brillo de su poder
+    if (p.shootT <= 0) return;
+    c.save(); c.globalCompositeOperation = 'lighter'; const g = c.createRadialGradient(hx + p.face * 14, hy, 2, hx + p.face * 14, hy, 24);
+    g.addColorStop(0, 'rgba(255,170,255,.9)'); g.addColorStop(1, 'rgba(120,60,255,0)'); c.fillStyle = g; c.beginPath(); c.arc(hx + p.face * 14, hy, 24, 0, 7); c.fill(); c.restore(); return;
+  }
+  if (id === 'will' && p.shootT > 0) return; // su pose de disparo ya incluye el rifle
+  const d = aimDir(p), ang = Math.atan2(d.y, d.x);
+  c.save(); c.translate(hx, hy); c.rotate(ang); if (p.face < 0) c.scale(1, -1);
+  c.lineJoin = 'round'; c.lineWidth = 1.6; c.strokeStyle = '#120a0c';
+  if (id === 'will') { // rifle de caza
+    c.fillStyle = '#7a4a22'; c.beginPath(); c.moveTo(-12, -1); c.lineTo(-3, -4); c.lineTo(6, -3); c.lineTo(6, 3); c.lineTo(-4, 5); c.lineTo(-12, 4); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#3b4048'; c.fillRect(6, -3, 30, 5); c.strokeRect(6, -3, 30, 5);
+    c.fillStyle = '#20242a'; c.fillRect(12, -7, 12, 4);
+  } else if (id === 'mike') { // tirachinas Wrist Rocket
+    c.fillStyle = '#2f6fb0'; c.fillRect(-4, -2, 12, 4); c.strokeRect(-4, -2, 12, 4);
+    c.strokeStyle = '#2f6fb0'; c.lineWidth = 3; c.beginPath(); c.moveTo(8, 0); c.lineTo(14, -9); c.moveTo(8, 0); c.lineTo(14, 9); c.stroke();
+    c.strokeStyle = '#d8402a'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(14, -9); c.lineTo(p.shootT > 0.1 ? 16 : 5, 0); c.lineTo(14, 9); c.stroke();
+    if (p.shootT <= 0.1) { c.fillStyle = '#bbb'; c.fillRect(3, -2, 4, 4); }
+  } else if (id === 'dustin') { // pistola de bengalas
+    c.fillStyle = '#d4551c'; c.fillRect(-4, -4, 22, 8); c.strokeRect(-4, -4, 22, 8);
+    c.fillStyle = '#222'; c.fillRect(-3, 4, 6, 9); c.fillRect(18, -2, 4, 4);
+    if (p.shootCd <= 0) { c.fillStyle = '#ff3a2a'; c.fillRect(22, -3, 5, 6); c.fillStyle = '#ffd34d'; c.fillRect(26, -2, 3, 4); }
+  }
+  c.restore();
+}
+
 function drawPlayer(p, camX) {
   const x = p.x - camX;
   if (p.inv > 0 && !p.dead && Math.floor(p.inv * 14) % 2 === 0) return;
@@ -956,6 +1078,9 @@ function drawPlayer(p, camX) {
   if (flipP && ATLAS[p.id].anims[a + 'L']) { an = a + 'L'; flipP = false; }
   if (p.bindT > 0) { ctx.save(); ctx.shadowColor = '#ff2060'; ctx.shadowBlur = 18; sprite(p.id, an, f, x, p.y, p.c.sc, flipP); ctx.restore(); }
   else sprite(p.id, an, f, x, p.y, p.c.sc, flipP);
+  drawWeapon(p, x);
+  if (p.held && !p.dead) { ctx.save(); ctx.translate(x, p.y - 112 + Math.sin(G.t * 5) * 2); drawProp(p.held, 0.7); ctx.restore(); }
+  if (p.jam > 0) text('¡SOBRECALENTADO!', x, p.y - 128, 8, Math.floor(G.t * 8) % 2 ? '#ff4040' : '#ffd34d', 'center');
   if (p.melee > 0 && p.melee < 0.28) { // estela del bate
     const prog = 1 - p.melee / 0.36;
     ctx.save(); ctx.translate(x + p.face * 38, p.y - 56); ctx.scale(p.face, 1);
@@ -984,6 +1109,13 @@ function drawHUD() {
   text(`VIDAS x${Math.max(0, G.lives)}`, 84, 70, 9, '#fff');
   ctx.save(); ctx.translate(200, 62); drawGrenade(ctx, 0.62); ctx.restore(); text(`x${p.gren}`, 214, 70, 10, '#ffb060');
   text(`ARMA ${'*'.repeat(p.wpn)}`, 190, 34, 9, '#9fe0ff');
+  if (!c.melee) { // barra de calor del arma
+    ctx.fillStyle = '#2a0a10'; ctx.fillRect(190, 40, 108, 8);
+    ctx.fillStyle = p.jam > 0 ? (Math.floor(G.t * 8) % 2 ? '#ff2a2a' : '#7a1010') : p.heat < 0.6 ? '#ffd34d' : p.heat < 0.85 ? '#ff8a30' : '#ff3030';
+    ctx.fillRect(190, 40, 108 * (p.jam > 0 ? 1 : p.heat), 8);
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(190, 40, 108, 8);
+  }
+  if (p.held) text(PROPS[p.held].name, 238, 70, 8, '#9fe0ff');
   text('SCORE', W - 20, 28, 10, '#ff8080', 'right');
   text(String(G.score).padStart(7, '0'), W - 20, 52, 18, '#fff', 'right');
   text(`${STAGES[G.stage].name}`, W - 20, 74, 9, '#ccc', 'right');
@@ -1015,6 +1147,7 @@ function drawGame() {
     ctx.save(); ctx.translate(g.x - camX, g.y); ctx.rotate(g.spin);
     ctx.shadowColor = 'rgba(255,150,40,.7)'; ctx.shadowBlur = 8; drawGrenade(ctx, 0.95); ctx.restore();
   }
+  for (const o of G.props) { ctx.save(); ctx.translate(o.x - camX, o.y); ctx.rotate(o.rot); drawProp(o.kind, 1.1); ctx.restore(); }
   for (const b of G.bullets) drawBullet(b, camX);
   for (const q of G.eproj) drawEProj(q, camX);
   for (const q of G.parts) {
@@ -1072,7 +1205,7 @@ function drawTitle(t) {
     sprite(id, 'walk', Math.floor(t * 8 + i) % ATLAS[id].anims.walk.n, 70 + i * 62, 450, sc);
   });
   sprite('demogorgon', 'walk', Math.floor(t * 7) % ATLAS.demogorgon.anims.walk.n, 760, 450, 1.2, true);
-  sprite('vecna', 'walk', Math.floor(t * 8) % ATLAS.vecna.anims.walk.n, 865, 450, 1.0, true);
+  sprite('vecna', 'idle', 0, 865, 450 + Math.sin(t * 2) * 1.5, 1.0, true); // en la portada espera quieto; solo camina en el juego
   if (document.body.classList.contains('touch')) {
     text('CRUCETA: MOVER Y APUNTAR   SALTO / FUEGO / BOMBA   II: PAUSA', W / 2, 492, 9, '#ddd', 'center');
     text('GIRA EL MOVIL EN HORIZONTAL', W / 2, 512, 8, '#aaa', 'center');

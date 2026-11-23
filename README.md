@@ -20,6 +20,10 @@ Por defecto (todas se pueden cambiar en **AJUSTES → CONTROLES**; se guardan en
 | Pausa / menú | P o Esc |
 | Sonido / Pantalla completa | M / F |
 
+**Armas** (todas salen de la serie; solo Eleven no lleva arma, usa telequinesis): Will, rifle de caza; Mike, tirachinas Wrist Rocket; Dustin, pistola de bengalas; Steve, bate con clavos.
+**Calor:** disparar sin parar sobrecalienta el arma (barra bajo ARMA): mantener pulsado dispara más lento y con menos puntería, y al llegar al máximo se bloquea 1,4 s. Disparar en ráfagas cortas lo enfría.
+**Objetos:** en cada acto hay objetos por el suelo (silla y extintor en el laboratorio; roca y bidón en el Mundo del Revés). Pasa por encima para cogerlos y lanza con BOMBA (C): la silla y la roca golpean fuerte a un enemigo; el extintor y el bidón explotan en área y aturden.
+
 El menú de pausa incluye ajustes de música, efectos, temblor de pantalla y pantalla completa.
 
 ## Móvil y tablet (Android e iPhone/iPad)
