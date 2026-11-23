@@ -26,7 +26,7 @@
   }
   const installBtn = document.getElementById('install');
   let deferred = null;
-  const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
+  const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true || /StrangerSlugApp/.test(ua); // la app Android ya va a pantalla completa
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; });
   addEventListener('appinstalled', () => { deferred = null; });
   installBtn.addEventListener('click', async () => {
