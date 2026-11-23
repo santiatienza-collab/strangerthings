@@ -21,7 +21,7 @@ Por defecto (todas se pueden cambiar en **AJUSTES → CONTROLES**; se guardan en
 | Sonido / Pantalla completa | M / F (o el botón ⛶ en pantalla táctil) |
 
 **Armas** (todas salen de la serie; solo Eleven no lleva arma, usa telequinesis): Will, rifle de caza; Mike, tirachinas; Lucas, Wrist Rocket (más rápido y potente); Dustin, pistola de bengalas; Steve, bate con clavos.
-**Calor:** disparar sin parar sobrecalienta el arma (barra bajo ARMA): mantener pulsado dispara más lento y con menos puntería, y al llegar al máximo se bloquea 1,4 s. Disparar en ráfagas cortas lo enfría.
+**Calor:** disparar sin parar sobrecalienta el arma (barra bajo ARMA): mantener pulsado dispara más lento y con menos puntería, y al llegar al máximo se bloquea 1,4 s (Eleven, en cambio, queda AGOTADA y le sangra la nariz). Disparar en ráfagas cortas lo enfría.
 **Objetos:** en cada acto hay objetos por el suelo (silla y extintor en el laboratorio; silla y lámpara en la casa y la mansión; roca y bidón en el resto). Párate encima y pulsa DISPARO para cogerlo; pulsa DISPARO otra vez para soltarlo lanzado hacia delante (ABAJO + DISPARO lo deja a tus pies). BOMBA también lo lanza. La silla, la lámpara y la roca golpean fuerte a un enemigo; el extintor y el bidón explotan en área y aturden.
 
 El menú de pausa incluye ajustes de música, efectos, temblor de pantalla y pantalla completa.

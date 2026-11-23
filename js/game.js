@@ -413,6 +413,7 @@ function updatePlayer(dt) {
     if (used) p.shootCd = Math.max(p.shootCd, 0.3);
   }
   const firing = down(...K.fire) && !p.held;
+  if (p.id === 'eleven' && p.jam > 0 && Math.random() < 0.3) G.parts.push({ x: p.x + p.face * 11, y: p.y - 80, vx: rnd(-10, 10), vy: rnd(0, 30), life: 0.7, max: 0.7, color: '#c4101e', g: 520, size: 2.5 });
   if (p.jam > 0) { p.jam -= dt; if (p.jam <= 0) { p.heat = 0.3; Snd.ok(); } }
   else if (firing && !p.c.melee) p.holdT = Math.min(2, p.holdT + dt);
   if (!firing || p.jam > 0) p.holdT = Math.max(0, p.holdT - dt * 3);
@@ -1240,13 +1241,21 @@ function drawPlayer(p, camX) {
   let an = a, flipP = p.face < 0;
   if (flipP && ATLAS[p.id].anims[a + 'L']) { an = a + 'L'; flipP = false; }
   drawCarryBack(p, x);
-  if (p.bindT > 0) { ctx.save(); ctx.shadowColor = '#ff2060'; ctx.shadowBlur = 18; sprite(p.id, an, f, x, p.y, p.c.sc, flipP); ctx.restore(); }
-  else sprite(p.id, an, f, x, p.y, p.c.sc, flipP);
+  // balanceo al andar: el cuerpo sube en el paso y baja en el apoyo, para que el ciclo se vea fluido
+  const bob = (a === 'walk' || a === 'run') && p.onGround && Math.abs(p.vx) > 5 ? -Math.round(1.6 * (1 - (f % 3) / 2)) : 0;
+  if (p.bindT > 0) { ctx.save(); ctx.shadowColor = '#ff2060'; ctx.shadowBlur = 18; sprite(p.id, an, f, x, p.y + bob, p.c.sc, flipP); ctx.restore(); }
+  else sprite(p.id, an, f, x, p.y + bob, p.c.sc, flipP);
   drawCarryFront(p, x);
   drawWeapon(p, x);
+  if (p.id === 'eleven' && !p.dead && (p.heat > 0.5 || p.jam > 0)) { // el esfuerzo telequinético le hace sangrar la nariz
+    const k = p.jam > 0 ? 1 : (p.heat - 0.5) / 0.5, nx = x + p.face * 11, len = 3 + Math.round(9 * k) + (p.jam > 0 ? Math.round(2 + 2 * Math.sin(G.t * 9)) : 0);
+    ctx.fillStyle = '#7a0a14'; ctx.fillRect(nx - 1, p.y - 90, 4, len + 2);
+    ctx.fillStyle = '#d4182a'; ctx.fillRect(nx, p.y - 90, 2, len);
+    ctx.fillStyle = '#ff5a66'; ctx.fillRect(nx, p.y - 90, 1, Math.max(1, len - 3));
+  }
   if (!p.held && !p.dead && G.items.some(it => it.type === 'prop' && Math.abs(it.x - p.x) < 46 && Math.abs(it.y - (p.y - 20)) < 70)) text('DISPARA: COGER', x, p.y - 128, 8, '#9fe0ff', 'center');
   if (p.held && !p.dead) { ctx.save(); ctx.translate(x, p.y - 112 + Math.sin(G.t * 5) * 2); drawProp(p.held, 0.7); ctx.restore(); }
-  if (p.jam > 0) text('¡SOBRECALENTADO!', x, p.y - 128, 8, Math.floor(G.t * 8) % 2 ? '#ff4040' : '#ffd34d', 'center');
+  if (p.jam > 0) text(p.id === 'eleven' ? '¡AGOTADA!' : '¡SOBRECALENTADO!', x, p.y - 128, 8, Math.floor(G.t * 8) % 2 ? '#ff4040' : '#ffd34d', 'center');
   if (p.melee > 0 && p.melee < 0.28) { // estela del bate
     const prog = 1 - p.melee / 0.36;
     ctx.save(); ctx.translate(x + p.face * 38, p.y - 56); ctx.scale(p.face, 1);
@@ -1274,7 +1283,7 @@ function drawHUD() {
   }
   text(`VIDAS x${Math.max(0, G.lives)}`, 84, 70, 9, '#fff');
   ctx.save(); ctx.translate(200, 62); drawGrenade(ctx, 0.62); ctx.restore(); text(`x${p.gren}`, 214, 70, 10, '#ffb060');
-  text(`ARMA ${'*'.repeat(p.wpn)}`, 190, 34, 9, '#9fe0ff');
+  if (p.id === 'eleven') text(`TELEQUINESIS ${'*'.repeat(p.wpn)}`, 190, 34, 7, '#d8a8ff'); else text(`ARMA ${'*'.repeat(p.wpn)}`, 190, 34, 9, '#9fe0ff');
   if (!c.melee) { // barra de calor del arma
     ctx.fillStyle = '#2a0a10'; ctx.fillRect(190, 40, 108, 8);
     ctx.fillStyle = p.jam > 0 ? (Math.floor(G.t * 8) % 2 ? '#ff2a2a' : '#7a1010') : p.heat < 0.6 ? '#ffd34d' : p.heat < 0.85 ? '#ff8a30' : '#ff3030';

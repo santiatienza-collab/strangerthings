@@ -10,7 +10,7 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 8
+    "n": 6
    },
    "shoot": {
     "row": 2,
@@ -22,7 +22,7 @@ window.ATLAS = {
    },
    "walkL": {
     "row": 4,
-    "n": 8
+    "n": 6
    }
   }
  },
@@ -37,7 +37,7 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 8
+    "n": 6
    },
    "attack": {
     "row": 2,
@@ -57,7 +57,7 @@ window.ATLAS = {
    },
    "walkL": {
     "row": 6,
-    "n": 8
+    "n": 6
    }
   }
  },
@@ -72,7 +72,7 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 8
+    "n": 6
    },
    "power": {
     "row": 2,
@@ -84,14 +84,14 @@ window.ATLAS = {
    },
    "walkL": {
     "row": 4,
-    "n": 8
+    "n": 6
    }
   }
  },
  "mike": {
   "img": "assets/mike.png",
   "cw": 126,
-  "ch": 123,
+  "ch": 124,
   "anims": {
    "idle": {
     "row": 0,
@@ -99,7 +99,7 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 8
+    "n": 6
    },
    "talk": {
     "row": 2,
@@ -111,7 +111,7 @@ window.ATLAS = {
    },
    "walkL": {
     "row": 4,
-    "n": 8
+    "n": 6
    }
   }
  },
@@ -126,7 +126,7 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 8
+    "n": 6
    },
    "talk": {
     "row": 2,
@@ -138,7 +138,7 @@ window.ATLAS = {
    },
    "walkL": {
     "row": 4,
-    "n": 8
+    "n": 6
    }
   }
  },
@@ -153,11 +153,11 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 8
+    "n": 6
    },
    "run": {
     "row": 2,
-    "n": 8
+    "n": 6
    },
    "attack": {
     "row": 3,
@@ -173,18 +173,18 @@ window.ATLAS = {
    },
    "walkL": {
     "row": 6,
-    "n": 8
+    "n": 6
    },
    "runL": {
     "row": 7,
-    "n": 8
+    "n": 6
    }
   }
  },
  "lucas": {
   "img": "assets/lucas.png",
   "cw": 155,
-  "ch": 114,
+  "ch": 115,
   "anims": {
    "idle": {
     "row": 0,
@@ -200,11 +200,11 @@ window.ATLAS = {
    },
    "walk": {
     "row": 3,
-    "n": 8
+    "n": 6
    },
    "walkL": {
     "row": 4,
-    "n": 8
+    "n": 6
    }
   }
  },
