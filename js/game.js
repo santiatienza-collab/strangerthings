@@ -384,7 +384,10 @@ function playerPose(p) {
     return ['talk', hot ? 2 : 1];
   }
   if (!p.onGround) return [id === 'steve' ? 'run' : 'walk', 2];
-  if (mv) return id === 'steve' ? ['run', Math.floor(p.animT * 11) % 4] : ['walk', Math.floor(p.animT * Math.max(10, ATLAS[id].anims.walk.n * p.c.speed / 90)) % ATLAS[id].anims.walk.n]; // el ritmo sigue a la velocidad: los pies no patinan
+  if (mv) { // el ritmo sigue a la velocidad: los pies no patinan
+    const an = id === 'steve' ? 'run' : 'walk', n = ATLAS[id].anims[an].n;
+    return [an, Math.floor(p.animT * Math.max(10, n * p.c.speed / 90)) % n];
+  }
   return ['idle', Math.floor(p.animT * 4) % 4];
 }
 
@@ -948,8 +951,11 @@ function drawPlayer(p, camX) {
   if (p.inv > 0 && !p.dead && Math.floor(p.inv * 14) % 2 === 0) return;
   const [a, f] = playerPose(p);
   ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, GROUND + 2, 20, 5, 0, 0, 7); ctx.fill();
-  if (p.bindT > 0) { ctx.save(); ctx.shadowColor = '#ff2060'; ctx.shadowBlur = 18; sprite(p.id, a, f, x, p.y, p.c.sc, p.face < 0); ctx.restore(); }
-  else sprite(p.id, a, f, x, p.y, p.c.sc, p.face < 0);
+  // al mirar a la izquierda se usa la fila "Walk ←" de la hoja (anim + 'L'); si no existe, se voltea la de la derecha
+  let an = a, flipP = p.face < 0;
+  if (flipP && ATLAS[p.id].anims[a + 'L']) { an = a + 'L'; flipP = false; }
+  if (p.bindT > 0) { ctx.save(); ctx.shadowColor = '#ff2060'; ctx.shadowBlur = 18; sprite(p.id, an, f, x, p.y, p.c.sc, flipP); ctx.restore(); }
+  else sprite(p.id, an, f, x, p.y, p.c.sc, flipP);
   if (p.melee > 0 && p.melee < 0.28) { // estela del bate
     const prog = 1 - p.melee / 0.36;
     ctx.save(); ctx.translate(x + p.face * 38, p.y - 56); ctx.scale(p.face, 1);
