@@ -1,6 +1,6 @@
 /* Service worker: deja el juego instalable y jugable sin conexión.
  * Estrategia "stale-while-revalidate": sirve de la caché y actualiza en segundo plano. */
-const CACHE = 'stranger-slug-v15';
+const CACHE = 'stranger-slug-v16';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest',
   'js/atlas.js', 'js/game.js', 'js/touch.js',

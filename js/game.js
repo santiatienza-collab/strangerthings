@@ -169,26 +169,26 @@ const mixFor = n => { // más corredores y brutos conforme avanza la partida
   const b = Math.min(0.2, Math.max(0, (n - 2) * 0.012)), r = Math.min(0.55, 0.2 + n * 0.03);
   return [['demo', Math.max(0.25, 1 - r - b)], ['runner', r], ['brute', b]].filter(m => m[1] > 0);
 };
-const ACTS = [ // [mundo, subtítulo, tinte, jefes]
+const ACTS = [ // [escenario, subtítulo, tinte, jefes] — cada acto cambia de escenario y vuelve a empezar la rotación cada 6
   ['up', 'LAS RAICES DEL REVES', 'rgba(0,0,0,0)', ['brute']],
-  ['up', 'EL BOSQUE DE LIANAS', 'rgba(60,0,80,.2)', ['brute']],
-  ['up', 'LA PUERTA DE VECNA', 'rgba(8,0,24,.34)', ['brute', 'brute']],
   ['lab', 'LABORATORIO HAWKINS', 'rgba(0,10,30,.10)', ['brute']],
-  ['lab', 'PASILLOS ROTOS', 'rgba(0,20,40,.16)', ['brute']],
-  ['lab', 'EL NUCLEO DEL LAB', 'rgba(60,0,0,.2)', ['brute', 'brute']],
   ['forest', 'EL BOSQUE MALDITO', 'rgba(0,0,0,0)', ['brute']],
-  ['forest', 'NIEBLA ROJA', 'rgba(40,0,30,.16)', ['brute']],
-  ['forest', 'EL CLARO DE LAS ESPORAS', 'rgba(20,40,0,.18)', ['brute', 'brute']],
-  ['forest', 'EL ARBOL DE VECNA', 'rgba(20,0,30,.3)', ['vecna']],
   ['house', 'LA CASA BYERS', 'rgba(60,20,0,.08)', ['brute']],
-  ['house', 'LAS LUCES DE JOYCE', 'rgba(60,0,40,.14)', ['brute']],
-  ['house', 'EL SOTANO DE LA CASA', 'rgba(0,0,20,.34)', ['brute', 'brute']],
   ['street', 'BIENVENIDOS A HAWKINS', 'rgba(20,0,40,.1)', ['brute']],
-  ['street', 'LA CALLE PRINCIPAL', 'rgba(40,0,30,.18)', ['brute']],
-  ['street', 'LA TORRE DE AGUA', 'rgba(60,0,0,.24)', ['brute', 'brute']],
   ['mansion', 'LA MANSION', 'rgba(20,0,30,.16)', ['brute']],
+  ['up', 'EL BOSQUE DE LIANAS', 'rgba(60,0,80,.2)', ['brute', 'brute']],
+  ['lab', 'PASILLOS ROTOS', 'rgba(0,20,40,.16)', ['brute']],
+  ['forest', 'NIEBLA ROJA', 'rgba(40,0,30,.16)', ['brute']],
+  ['house', 'EL SOTANO DE LA CASA', 'rgba(0,0,20,.34)', ['vecna']],
+  ['street', 'LA CALLE PRINCIPAL', 'rgba(40,0,30,.18)', ['brute']],
   ['mansion', 'EL JARDIN MUERTO', 'rgba(40,0,20,.24)', ['brute', 'brute']],
+  ['up', 'LA PUERTA DE VECNA', 'rgba(8,0,24,.34)', ['brute', 'brute']],
+  ['lab', 'EL NUCLEO DEL LAB', 'rgba(60,0,0,.2)', ['brute', 'brute']],
+  ['forest', 'EL CLARO DE LAS ESPORAS', 'rgba(20,40,0,.18)', ['brute', 'brute']],
+  ['house', 'LAS LUCES DE JOYCE', 'rgba(60,0,40,.14)', ['brute', 'brute']],
+  ['street', 'LA TORRE DE AGUA', 'rgba(60,0,0,.24)', ['brute', 'brute']],
   ['mansion', 'EL SALON DEL TERROR', 'rgba(10,0,20,.34)', ['brute', 'brute', 'brute']],
+  ['up', 'LA MENTE DE VECNA', 'rgba(8,0,24,.42)', ['brute', 'brute']],
   ['mansion', 'EL ULTIMO PORTAL', 'rgba(60,0,40,.40)', ['brute', 'vecna']],
 ];
 const STAGES = ACTS.map(([world, sub, tint, boss], i) => ({ world, name: `ACTO ${i + 1}`, sub, tint, boss, len: Math.min(6200, 4600 + i * 110), mix: mixFor(i) }));
@@ -849,6 +849,7 @@ function tiled(img, y, h, par, camX, noMirror = false) {
 }
 
 function drawBackground(camX, t) {
+  camX += ((G.stage || 0) * 977) % 2600; // cada acto empieza en otro tramo del decorado
   const S = H / 1024, world = STAGES[G.stage || 0].world, sc = SCENES[world];
   if (!sc) tiled(IMG.far, 0, 750 * S, 0.35, camX);
   else { // panorámica a ancho completo, a la misma velocidad que el suelo

@@ -4,7 +4,7 @@ Shoot & run de plataformas al estilo *Metal Slug*, ambientado en el Mundo del Re
 Hecho con HTML5 Canvas, sin dependencias: abre `index.html` o publícalo en GitHub Pages.
 
 ## Actos
-20 actos en 6 escenarios: **Mundo del Revés** (1-3), **Laboratorio** (4-6), **Bosque** (7-10, jefe Vecna en el 10), **Casa Byers** (11-13), **Calle de Hawkins** (14-16) y **Mansión** (17-20, jefe final doble). Los fondos se regeneran con `python3 tools/build_bg.py`. Depuración: `?char=will&stage=7` salta a un acto.
+20 actos. Cada acto cambia de escenario y la rotación se repite cada seis: **Mundo del Revés → Laboratorio → Bosque → Casa Byers → Calle de Hawkins → Mansión** (el acto 20, el último, es la Mansión con el jefe final doble; Vecna aparece en los actos 10 y 20). Los fondos se regeneran con `python3 tools/build_bg.py`. Depuración: `?char=will&stage=7` salta a un acto.
 
 ## Controles
 Por defecto (todas se pueden cambiar en **AJUSTES → CONTROLES**; se guardan en el navegador):
