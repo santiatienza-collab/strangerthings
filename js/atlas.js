@@ -10,7 +10,7 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 6
+    "n": 8
    },
    "shoot": {
     "row": 2,
@@ -22,7 +22,7 @@ window.ATLAS = {
    },
    "walkL": {
     "row": 4,
-    "n": 6
+    "n": 8
    }
   }
  },
@@ -37,7 +37,7 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 6
+    "n": 8
    },
    "attack": {
     "row": 2,
@@ -54,6 +54,10 @@ window.ATLAS = {
    "die": {
     "row": 5,
     "n": 5
+   },
+   "walkL": {
+    "row": 6,
+    "n": 8
    }
   }
  },
@@ -68,7 +72,7 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 7
+    "n": 8
    },
    "power": {
     "row": 2,
@@ -80,7 +84,7 @@ window.ATLAS = {
    },
    "walkL": {
     "row": 4,
-    "n": 7
+    "n": 8
    }
   }
  },
@@ -95,7 +99,7 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 7
+    "n": 8
    },
    "talk": {
     "row": 2,
@@ -107,14 +111,14 @@ window.ATLAS = {
    },
    "walkL": {
     "row": 4,
-    "n": 7
+    "n": 8
    }
   }
  },
  "dustin": {
   "img": "assets/dustin.png",
   "cw": 123,
-  "ch": 123,
+  "ch": 122,
   "anims": {
    "idle": {
     "row": 0,
@@ -122,7 +126,7 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 7
+    "n": 8
    },
    "talk": {
     "row": 2,
@@ -134,7 +138,7 @@ window.ATLAS = {
    },
    "walkL": {
     "row": 4,
-    "n": 7
+    "n": 8
    }
   }
  },
@@ -149,11 +153,11 @@ window.ATLAS = {
    },
    "walk": {
     "row": 1,
-    "n": 6
+    "n": 8
    },
    "run": {
     "row": 2,
-    "n": 6
+    "n": 8
    },
    "attack": {
     "row": 3,
@@ -169,11 +173,11 @@ window.ATLAS = {
    },
    "walkL": {
     "row": 6,
-    "n": 6
+    "n": 8
    },
    "runL": {
     "row": 7,
-    "n": 6
+    "n": 8
    }
   }
  },

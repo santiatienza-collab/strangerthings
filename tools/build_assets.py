@@ -225,7 +225,7 @@ atlas['will'] = build_char('will', 'will.png', (21, 16, 24), {
     'walk':  ((635, 538, 1450, 690), 6, 'c'),
     'shoot': ((40, 768, 712, 925), 5, ('l', 52)),
     'other': ((735, 764, 1520, 925), 7, 'c'),
-}, idle_h=111, override={'walk': dict(sheet='Gemini_Generated_Image_5lqkgz5lqkgz5lqk.jpeg', bg=(26, 25, 31), box=(60, 88, 1230, 335), left=(40, 495, 1230, 745), n=6)}, blank=[(40, 490, 215, 540), (625, 490, 790, 540), (40, 712, 250, 764), (745, 712, 975, 764)])
+}, idle_h=111, override={'walk': dict(sheet='will1.png', bg=(21, 16, 23), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False)}, blank=[(40, 490, 215, 540), (625, 490, 790, 540), (40, 712, 250, 764), (745, 712, 975, 764)])
 atlas['demogorgon'] = build_char('demogorgon', 'demogorgon.png', (19, 18, 25), {
     'idle':   ((45, 452, 595, 595), 4, 'c'),
     'walk':   ((622, 452, 1490, 595), 6, 'c'),
@@ -233,7 +233,7 @@ atlas['demogorgon'] = build_char('demogorgon', 'demogorgon.png', (19, 18, 25), {
     'roar':   ((828, 606, 1505, 778), 4, 'c'),
     'hurt':   ((38, 828, 708, 978), 5, 'c'),
     'die':    ((738, 834, 1515, 978), 5, 'c'),
-}, idle_h=92, blank=[(30, 405, 200, 463), (630, 405, 782, 463), (30, 598, 242, 647), (826, 598, 1006, 647), (28, 783, 216, 833), (740, 783, 845, 833)])
+}, idle_h=92, override={'walk': dict(sheet='demo1.png', bg=(19, 13, 16), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False)}, blank=[(30, 405, 200, 463), (630, 405, 782, 463), (30, 598, 242, 647), (826, 598, 1006, 647), (28, 783, 216, 833), (740, 783, 845, 833)])
 # --- Eleven (WA0025)
 E = 'IMG-20261121-WA0025.jpg'
 atlas['eleven'] = build_char('eleven', E, DARK, {
@@ -241,21 +241,21 @@ atlas['eleven'] = build_char('eleven', E, DARK, {
     'walk':  ((1040, 305, 1510, 430), 4, 'c'),
     'power': ((1040, 460, 1510, 590), 4, 'c'),
     'other': ((1040, 640, 1510, 760), 4, 'c'),
-}, override={'walk': dict(sheet='Gemini_Generated_Image_ohbt8iohbt8iohbt.jpeg', bg=(26, 24, 27), box=(234, 128, 1326, 356), left=(234, 450, 1326, 676), n=8, drop=[7])})
+}, override={'walk': dict(sheet='eleven1.png', bg=(22, 15, 21), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False)})
 # --- Mike (WA0027)
 atlas['mike'] = build_char('mike', 'IMG-20261121-WA0027.jpg', DARK, {
     'idle':  ((1045, 160, 1510, 285), 4, 'c'),
     'walk':  ((1045, 305, 1510, 430), 4, 'c'),
     'talk':  ((1045, 460, 1510, 590), 4, 'c'),
     'other': ((1045, 640, 1510, 760), 4, 'c'),
-}, override={'walk': dict(sheet='Gemini_Generated_Image_51s8a251s8a251s8.jpeg', bg=(97, 83, 106), box=(215, 108, 1345, 358), left=(215, 430, 1345, 688), n=8, thr=38, scrub=False, drop=[7])})
+}, override={'walk': dict(sheet='mike1.png', bg=(22, 15, 21), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, thr=9)})
 # --- Dustin (WA0028)
 atlas['dustin'] = build_char('dustin', 'IMG-20261121-WA0028.jpg', DARK, {
     'idle':  ((1045, 160, 1510, 285), 4, 'c'),
     'walk':  ((1045, 305, 1510, 430), 4, 'c'),
     'talk':  ((1045, 460, 1510, 590), 4, 'c'),
     'other': ((1045, 640, 1510, 760), 4, 'c'),
-}, override={'walk': dict(sheet='Gemini_Generated_Image_w28qzlw28qzlw28q.jpeg', bg=(25, 20, 27), box=(205, 108, 1345, 352), left=(205, 420, 1345, 684), n=8, drop=[7])})
+}, override={'walk': dict(sheet='dustin1.png', bg=(17, 13, 16), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False)})
 # --- Steve (WA0029)
 S = 'IMG-20261121-WA0029.jpg'
 atlas['steve'] = build_char('steve', S, DARK, {
@@ -265,8 +265,8 @@ atlas['steve'] = build_char('steve', S, DARK, {
     'attack': ((40, 810, 560, 955), 5, ('l', 40)),
     'hurt':   ((595, 825, 985, 955), 4, 'c'),
     'other':  ((1020, 815, 1440, 955), 4, 'c'),
-}, override={'walk': dict(sheet='Gemini_Generated_Image_k77auqk77auqk77a.jpeg', bg=(24, 18, 28), box=(222, 96, 1345, 370), left=(225, 437, 1345, 700), n=7, drop=[6]),
-              'run': dict(sheet='Gemini_Generated_Image_k77auqk77auqk77a.jpeg', bg=(24, 18, 28), box=(222, 96, 1345, 370), left=(225, 437, 1345, 700), n=7, drop=[6])})
+}, override={'walk': dict(sheet='steve1.png', bg=(17, 13, 18), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False),
+              'run': dict(sheet='steve1.png', bg=(17, 13, 18), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False)})
 # --- Lucas (lucas1.png: andar; lucas2.png: reposo, tirachinas y otras acciones)
 atlas['lucas'] = build_char('lucas', 'lucas2.png', (22, 16, 24), {
     'idle':  ((60, 535, 530, 685), 4, 'torso'),

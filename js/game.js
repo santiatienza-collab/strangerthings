@@ -1150,7 +1150,9 @@ function drawEnemy(e, camX) {
   // sombra
   ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, (e.grounded ? e.y : GROUND) + 2, 30 * e.sc / 1.1, 6, 0, 0, 7); ctx.fill();
   if (!e.grounded) { anim = 'attack'; f = e.vy < 0 ? 1 : 2; }
-  sprite('demogorgon', anim, f, x, e.y, e.sc, flip, blink);
+  // al ir a la izquierda se usa la fila "Walk ←" de la hoja
+  if (flip && ATLAS.demogorgon.anims[anim + 'L']) sprite('demogorgon', anim + 'L', f, x, e.y, e.sc, false, blink);
+  else sprite('demogorgon', anim, f, x, e.y, e.sc, flip, blink);
 }
 
 // Armas de la serie. En reposo van colgadas del cuerpo (se dibujan detrás o encima del sprite, en el punto de cada personaje);
@@ -1494,8 +1496,6 @@ function drawMenuScreen() {
 }
 
 function drawTitleMenu() {
-  const n = menuItems().length;
-  ctx.fillStyle = 'rgba(6,0,10,.55)'; ctx.fillRect(W / 2 - 175, 278, 350, n * 36 + 16); // fondo para que se lea el menú
   menuItems().forEach((it, i) => {
     const y = 305 + i * 36, sel = i === M.idx;
     text((sel ? '> ' : '') + it.label + (sel ? ' <' : ''), W / 2, y, 18, sel ? '#ffd34d' : '#fff', 'center');
