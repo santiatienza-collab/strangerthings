@@ -1,8 +1,8 @@
 window.ATLAS = {
  "will": {
   "img": "assets/will.png",
-  "cw": 100,
-  "ch": 92,
+  "cw": 140,
+  "ch": 127,
   "anims": {
    "idle": {
     "row": 0,
@@ -179,8 +179,8 @@ window.ATLAS = {
  },
  "lucas": {
   "img": "assets/lucas.png",
-  "cw": 117,
-  "ch": 87,
+  "cw": 155,
+  "ch": 114,
   "anims": {
    "idle": {
     "row": 0,

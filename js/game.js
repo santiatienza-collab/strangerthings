@@ -140,9 +140,9 @@ function sprite(name, anim, frame, x, y, scale = 1, flip = false, alpha = 1) {
 
 /* ------------------------------------------------------------- game data */
 const CHARS = {
-  will:   { name: 'WILL',   hp: 6, speed: 190, rate: 0.22, dmg: 1.2, bspeed: 720, kind: 'bullet', heat: 0.115, sc: 1.1,  tag: 'RIFLE CAZA',   stats: [3, 3, 4] },
+  will:   { name: 'WILL',   hp: 6, speed: 190, rate: 0.22, dmg: 1.2, bspeed: 720, kind: 'bullet', heat: 0.115, sc: 1.0,  tag: 'RIFLE CAZA',   stats: [3, 3, 4] },
   eleven: { name: 'ELEVEN', hp: 5, speed: 185, rate: 0.34, dmg: 1.7, bspeed: 520, kind: 'psy',    heat: 0.20, sc: 1.0,  tag: 'TELEQUINESIS', pierce: 2, stats: [2, 3, 5] },
-  lucas:  { name: 'LUCAS',  hp: 5, speed: 205, rate: 0.30, dmg: 1.5, bspeed: 780, kind: 'pellet', heat: 0.13, sc: 1.05, tag: 'WRIST ROCKET', stats: [2, 4, 4] },
+  lucas:  { name: 'LUCAS',  hp: 5, speed: 205, rate: 0.30, dmg: 1.5, bspeed: 780, kind: 'pellet', heat: 0.13, sc: 1.0, tag: 'WRIST ROCKET', stats: [2, 4, 4] },
   mike:   { name: 'MIKE',   hp: 5, speed: 220, rate: 0.13, dmg: 0.7, bspeed: 660, kind: 'pellet', heat: 0.07, sc: 1.0,  tag: 'TIRACHINAS',  stats: [2, 5, 3] },
   dustin: { name: 'DUSTIN', hp: 6, speed: 195, rate: 0.38, dmg: 0.8, bspeed: 570, kind: 'flare',  heat: 0.20, sc: 1.0,  tag: 'BENGALAS x3', stats: [3, 3, 3] },
   steve:  { name: 'STEVE',  hp: 8, speed: 225, rate: 0.45, dmg: 3.0, melee: true,   sc: 0.95, tag: 'BATE CLAVOS', stats: [5, 4, 4] },
@@ -246,7 +246,7 @@ function newPlayer(id, x) {
   const c = CHARS[id];
   return { id, c, x, y: GROUND, vx: 0, vy: 0, face: 1, hp: c.hp, maxHp: c.hp, onGround: true, crouch: false,
     shootCd: 0, shootT: 0, hurtT: 0, inv: 0, dead: false, deadT: 0, animT: 0, wpn: 1, gren: 3, gCd: 0,
-    bindT: 0, heat: 0, coolT: 0, jam: 0, holdT: 0, held: null, melee: 0, meleeHit: new Set(), drop: 0, w: 34, h: 84, kx: 0 };
+    bindT: 0, aimT: 0, heat: 0, coolT: 0, jam: 0, holdT: 0, held: null, melee: 0, meleeHit: new Set(), drop: 0, w: 34, h: 84, kx: 0 };
 }
 
 function startStage(n) {
@@ -292,7 +292,7 @@ function aimDir(p) {
 function fire(p) {
   const c = p.c, lv = p.wpn;
   p.shootCd = c.rate * (lv >= 2 ? 0.8 : 1) * (c.melee ? 1 : 1 + Math.min(0.6, p.holdT * 0.35)); // mantener pulsado = más lento
-  p.shootT = 0.24;
+  p.shootT = 0.24; p.aimT = 0.55;
   if (c.melee) {
     p.melee = 0.36; p.meleeHit = new Set(); Snd.swing(); p.shootCd = 0.4; return;
   }
@@ -349,6 +349,7 @@ function updatePlayer(dt) {
   if (p.gCd > 0) p.gCd -= dt;
   if (p.shootCd > 0) p.shootCd -= dt;
   if (p.shootT > 0) p.shootT -= dt;
+  if (p.aimT > 0) p.aimT -= dt;
   if (p.drop > 0) p.drop -= dt;
   if (p.bindT > 0) p.bindT -= dt;
 
@@ -398,13 +399,26 @@ function updatePlayer(dt) {
   }
   p.x = Math.max(G.cam.x + 26, Math.min(G.cam.x + W - 26, p.x));
 
-  const firing = down(...K.fire);
+  // objetos: DISPARO encima de uno lo coge; DISPARO otra vez lo suelta (lanzado hacia delante; con ABAJO se deja a los pies)
+  let used = false;
+  if (tap(...K.fire) && !p.dead) {
+    if (p.held) {
+      if (down(...K.down)) { G.items.push({ x: p.x + p.face * 26, y: GROUND - 18, type: 'prop', prop: p.held, t: 0 }); p.held = null; Snd.pick(); }
+      else throwProp(p);
+      used = true;
+    } else {
+      const near = G.items.find(it => it.type === 'prop' && Math.abs(it.x - p.x) < 46 && Math.abs(it.y - (p.y - 20)) < 70);
+      if (near) { p.held = near.prop; near.got = true; Snd.pick(); burst(near.x, near.y, 8, '#fff', 120, 0.3); used = true; }
+    }
+    if (used) p.shootCd = Math.max(p.shootCd, 0.3);
+  }
+  const firing = down(...K.fire) && !p.held;
   if (p.jam > 0) { p.jam -= dt; if (p.jam <= 0) { p.heat = 0.3; Snd.ok(); } }
   else if (firing && !p.c.melee) p.holdT = Math.min(2, p.holdT + dt);
   if (!firing || p.jam > 0) p.holdT = Math.max(0, p.holdT - dt * 3);
   if (p.jam <= 0) { if (p.coolT > 0) p.coolT -= dt; else p.heat = Math.max(0, p.heat - 0.45 * dt); }
   if (firing && p.shootCd <= 0 && p.melee <= 0 && p.jam <= 0) fire(p);
-  if (tap(...K.gren)) { if (p.held) throwProp(p); else throwGrenade(p); }
+  if (tap(...K.gren) && !used) { if (p.held) throwProp(p); else throwGrenade(p); }
 
   if (p.melee > 0) {
     p.melee -= dt;
@@ -794,7 +808,7 @@ function updatePlay(dt) {
   // items
   for (const it of G.items) {
     it.t += dt;
-    if (it.type === 'prop' && p.held) continue; // solo se lleva un objeto
+    if (it.type === 'prop') continue; // los objetos se cogen disparando encima de ellos
     if (!p.dead && Math.abs(it.x - p.x) < 28 && Math.abs((it.y) - (p.y - 40)) < 60) {
       it.got = true; Snd.pick();
       if (it.type === 'hp') p.hp = Math.min(p.maxHp, p.hp + 2);
@@ -1139,16 +1153,43 @@ function drawEnemy(e, camX) {
   sprite('demogorgon', anim, f, x, e.y, e.sc, flip, blink);
 }
 
-// armas inspiradas en la serie, dibujadas sobre el sprite y orientadas hacia donde apunta
+// Armas de la serie. En reposo van colgadas del cuerpo (se dibujan detrás o encima del sprite, en el punto de cada personaje);
+// al disparar, Mike y Dustin levantan un brazo (manga + mano) hasta el arma, que apunta hacia donde miras.
+// Will y Lucas ya traen el arma en sus poses de disparo del sprite.
+const ARM = { mike: ['#b9a37a', '#f0b890'], dustin: ['#2c4a8c', '#f2b88e'] };
+const hasAimPose = id => id === 'will' || id === 'lucas';
+function drawCarryBack(p, x) { // rifle de Will en bandolera: asoma por encima del hombro y por debajo de la cadera
+  if (p.id !== 'will' || p.dead || (p.shootT > 0)) return;
+  const f = p.face, c = ctx, y = p.y;
+  c.save(); c.lineCap = 'round';
+  c.strokeStyle = '#120a0c'; c.lineWidth = 6.5; c.beginPath(); c.moveTo(x - f * 16, y - 110); c.lineTo(x + f * 3, y - 30); c.stroke();
+  c.strokeStyle = '#3b4048'; c.lineWidth = 4; c.beginPath(); c.moveTo(x - f * 16, y - 110); c.lineTo(x - f * 9, y - 80); c.stroke();     // cañón
+  c.strokeStyle = '#8a5a2b'; c.lineWidth = 4.4; c.beginPath(); c.moveTo(x - f * 3, y - 54); c.lineTo(x + f * 3, y - 30); c.stroke();     // culata
+  c.restore();
+}
+function drawCarryFront(p, x) { // tirachinas en el bolsillo de atrás y pistola de bengalas en la cartuchera
+  if (p.dead || p.shootT > 0 || p.aimT > 0) return;
+  const f = p.face, c = ctx, hy = p.y - (p.crouch ? 28 : 42);
+  c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
+  if (p.id === 'mike' || p.id === 'lucas') {
+    c.translate(x - f * 11, hy); c.rotate(-f * 0.5);
+    c.strokeStyle = '#120a0c'; c.lineWidth = 5.4; c.beginPath(); c.moveTo(0, 6); c.lineTo(0, -2); c.moveTo(0, -2); c.lineTo(-4.5, -9); c.moveTo(0, -2); c.lineTo(4.5, -9); c.stroke();
+    c.strokeStyle = p.id === 'lucas' ? '#8a5a2b' : '#2f6fb0'; c.lineWidth = 3; c.beginPath(); c.moveTo(0, 6); c.lineTo(0, -2); c.moveTo(0, -2); c.lineTo(-4.5, -9); c.moveTo(0, -2); c.lineTo(4.5, -9); c.stroke();
+  } else if (p.id === 'dustin') {
+    c.translate(x + f * 9, hy); c.rotate(f * 0.15);
+    c.fillStyle = '#120a0c'; c.fillRect(-4, -3, 9, 14);
+    c.fillStyle = '#d4551c'; c.fillRect(-3, -2, 7, 5); c.fillStyle = '#4a2a14'; c.fillRect(-2, 3, 5, 7);  // cartuchera con la culata asomando
+  }
+  c.restore();
+}
 function drawWeapon(p, x) {
   const id = p.id, c = ctx;
   if (p.dead || p.hurtT > 0.2) return;
   const kick = Math.max(0, (p.shootT - 0.16) / 0.08) * 3;           // retroceso al disparar
-  const hx = x + p.face * (10 - kick), hy = p.y - (p.crouch ? 36 : 52);
   if (id === 'steve') { // bate con clavos: solo se ve al golpear (en reposo va a la espalda, ya dibujado)
     if (p.melee <= 0) return;
-    const prog = 1 - p.melee / 0.36, ang = -1.5 + 2.7 * Math.min(1, prog * 1.5);
-    c.save(); c.translate(x + p.face * 12, hy - 4); c.scale(p.face, 1); c.rotate(ang);
+    const prog = 1 - p.melee / 0.36, ang = -1.5 + 2.7 * Math.min(1, prog * 1.5), hy = p.y - 66;
+    c.save(); c.translate(x + p.face * 12, hy); c.scale(p.face, 1); c.rotate(ang);
     c.fillStyle = '#8a5a2b'; c.strokeStyle = '#2a170a'; c.lineWidth = 2;
     c.beginPath(); c.moveTo(0, -3); c.lineTo(34, -5.5); c.lineTo(46, -6.5); c.lineTo(46, 6.5); c.lineTo(34, 5.5); c.lineTo(0, 3); c.closePath(); c.fill(); c.stroke();
     c.fillStyle = '#d6dbe0'; for (const nx of [30, 36, 42]) { c.fillRect(nx, -9, 2, 4); c.fillRect(nx, 5, 2, 4); }
@@ -1156,27 +1197,35 @@ function drawWeapon(p, x) {
   }
   if (id === 'eleven') { // sin arma: solo el brillo de su poder
     if (p.shootT <= 0) return;
-    c.save(); c.globalCompositeOperation = 'lighter'; const g = c.createRadialGradient(hx + p.face * 14, hy, 2, hx + p.face * 14, hy, 24);
-    g.addColorStop(0, 'rgba(255,170,255,.9)'); g.addColorStop(1, 'rgba(120,60,255,0)'); c.fillStyle = g; c.beginPath(); c.arc(hx + p.face * 14, hy, 24, 0, 7); c.fill(); c.restore(); return;
+    const hx = x + p.face * 24, hy = p.y - 70;
+    c.save(); c.globalCompositeOperation = 'lighter'; const g = c.createRadialGradient(hx, hy, 2, hx, hy, 26);
+    g.addColorStop(0, 'rgba(255,170,255,.9)'); g.addColorStop(1, 'rgba(120,60,255,0)'); c.fillStyle = g; c.beginPath(); c.arc(hx, hy, 26, 0, 7); c.fill(); c.restore(); return;
   }
-  if ((id === 'will' || id === 'lucas') && p.shootT > 0) return; // su pose de disparo ya incluye el arma
-  const d = aimDir(p), ang = Math.atan2(d.y, d.x);
-  c.save(); c.translate(hx, hy); c.rotate(ang); if (p.face < 0) c.scale(1, -1);
-  c.lineJoin = 'round'; c.lineWidth = 1.6; c.strokeStyle = '#120a0c';
-  if (id === 'will') { // rifle de caza
-    c.fillStyle = '#7a4a22'; c.beginPath(); c.moveTo(-12, -1); c.lineTo(-3, -4); c.lineTo(6, -3); c.lineTo(6, 3); c.lineTo(-4, 5); c.lineTo(-12, 4); c.closePath(); c.fill(); c.stroke();
-    c.fillStyle = '#3b4048'; c.fillRect(6, -3, 30, 5); c.strokeRect(6, -3, 30, 5);
-    c.fillStyle = '#20242a'; c.fillRect(12, -7, 12, 4);
-  } else if (id === 'mike' || id === 'lucas') { // tirachinas Wrist Rocket
-    c.fillStyle = '#2f6fb0'; c.fillRect(-4, -2, 12, 4); c.strokeRect(-4, -2, 12, 4);
-    c.strokeStyle = '#2f6fb0'; c.lineWidth = 3; c.beginPath(); c.moveTo(8, 0); c.lineTo(14, -9); c.moveTo(8, 0); c.lineTo(14, 9); c.stroke();
-    c.strokeStyle = '#d8402a'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(14, -9); c.lineTo(p.shootT > 0.1 ? 16 : 5, 0); c.lineTo(14, 9); c.stroke();
-    if (p.shootT <= 0.1) { c.fillStyle = '#bbb'; c.fillRect(3, -2, 4, 4); }
-  } else if (id === 'dustin') { // pistola de bengalas
-    c.fillStyle = '#d4551c'; c.fillRect(-4, -4, 22, 8); c.strokeRect(-4, -4, 22, 8);
-    c.fillStyle = '#222'; c.fillRect(-3, 4, 6, 9); c.fillRect(18, -2, 4, 4);
-    if (p.shootCd <= 0) { c.fillStyle = '#ff3a2a'; c.fillRect(22, -3, 5, 6); c.fillStyle = '#ffd34d'; c.fillRect(26, -2, 3, 4); }
+  if (hasAimPose(id) || p.aimT <= 0) return;
+  const d = aimDir(p), ang = Math.atan2(d.y, d.x), f = p.face;
+  const sx = x + f * (3 - kick * 0.4), sy = p.y - (p.crouch ? 46 : 71);          // hombro
+  const hx = sx + Math.cos(ang) * (15 - kick), hy = sy + Math.sin(ang) * (15 - kick);   // mano
+  const [sleeve, skin] = ARM[id];
+  c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+  c.strokeStyle = '#120a0c'; c.lineWidth = 8.5; c.beginPath(); c.moveTo(sx, sy); c.lineTo(hx, hy); c.stroke();   // brazo extendido
+  c.strokeStyle = sleeve; c.lineWidth = 5.6; c.beginPath(); c.moveTo(sx, sy); c.lineTo(hx, hy); c.stroke();
+  c.save(); c.translate(hx, hy); c.rotate(ang); if (f < 0) c.scale(1, -1);
+  c.lineWidth = 1.6; c.strokeStyle = '#120a0c';
+  if (id === 'mike') { // tirachinas Wrist Rocket
+    c.fillStyle = '#2f6fb0'; c.fillRect(-3, -2.5, 11, 5); c.strokeRect(-3, -2.5, 11, 5);
+    c.strokeStyle = '#120a0c'; c.lineWidth = 5.4; c.beginPath(); c.moveTo(8, 0); c.lineTo(14, -9); c.moveTo(8, 0); c.lineTo(14, 9); c.stroke();
+    c.strokeStyle = '#3f86cf'; c.lineWidth = 3; c.beginPath(); c.moveTo(8, 0); c.lineTo(14, -9); c.moveTo(8, 0); c.lineTo(14, 9); c.stroke();
+    c.strokeStyle = '#e04a30'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(14, -9); c.lineTo(p.shootT > 0.1 ? 16 : 4, 0); c.lineTo(14, 9); c.stroke();
+    if (p.shootT <= 0.1) { c.fillStyle = '#c8ccd2'; c.fillRect(2, -2, 4, 4); }
+  } else { // pistola de bengalas
+    c.fillStyle = '#d4551c'; c.fillRect(-3, -4, 22, 8); c.strokeRect(-3, -4, 22, 8);
+    c.fillStyle = '#f0884a'; c.fillRect(-2, -3, 20, 2);
+    c.fillStyle = '#2a2a2e'; c.fillRect(-2, 4, 6, 9); c.strokeRect(-2, 4, 6, 9); c.fillRect(19, -2.5, 4, 5);
+    if (p.shootCd <= 0.05) { c.fillStyle = '#ff3a2a'; c.fillRect(22, -3, 5, 6); c.fillStyle = '#ffd34d'; c.fillRect(26, -2, 3, 4); }
+    if (p.shootT > 0.16) { c.fillStyle = '#fff3a0'; c.beginPath(); c.arc(25, 0, 5, 0, 7); c.fill(); }
   }
+  c.restore();
+  c.fillStyle = skin; c.strokeStyle = '#120a0c'; c.lineWidth = 1.5; c.beginPath(); c.arc(hx, hy, 3.6, 0, 7); c.fill(); c.stroke();   // mano
   c.restore();
 }
 
@@ -1188,9 +1237,12 @@ function drawPlayer(p, camX) {
   // al mirar a la izquierda se usa la fila "Walk ←" de la hoja (anim + 'L'); si no existe, se voltea la de la derecha
   let an = a, flipP = p.face < 0;
   if (flipP && ATLAS[p.id].anims[a + 'L']) { an = a + 'L'; flipP = false; }
+  drawCarryBack(p, x);
   if (p.bindT > 0) { ctx.save(); ctx.shadowColor = '#ff2060'; ctx.shadowBlur = 18; sprite(p.id, an, f, x, p.y, p.c.sc, flipP); ctx.restore(); }
   else sprite(p.id, an, f, x, p.y, p.c.sc, flipP);
+  drawCarryFront(p, x);
   drawWeapon(p, x);
+  if (!p.held && !p.dead && G.items.some(it => it.type === 'prop' && Math.abs(it.x - p.x) < 46 && Math.abs(it.y - (p.y - 20)) < 70)) text('DISPARA: COGER', x, p.y - 128, 8, '#9fe0ff', 'center');
   if (p.held && !p.dead) { ctx.save(); ctx.translate(x, p.y - 112 + Math.sin(G.t * 5) * 2); drawProp(p.held, 0.7); ctx.restore(); }
   if (p.jam > 0) text('¡SOBRECALENTADO!', x, p.y - 128, 8, Math.floor(G.t * 8) % 2 ? '#ff4040' : '#ffd34d', 'center');
   if (p.melee > 0 && p.melee < 0.28) { // estela del bate
@@ -1227,7 +1279,7 @@ function drawHUD() {
     ctx.fillRect(190, 40, 108 * (p.jam > 0 ? 1 : p.heat), 8);
     ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(190, 40, 108, 8);
   }
-  if (p.held) text(PROPS[p.held].name, 238, 70, 8, '#9fe0ff');
+  if (p.held) text(PROPS[p.held].name + ': DISPARA=LANZAR', 238, 70, 7, '#9fe0ff');
   text('SCORE', W - 20, 28, 10, '#ff8080', 'right');
   text(String(G.score).padStart(7, '0'), W - 20, 52, 18, '#fff', 'right');
   text(`${STAGES[G.stage].name}`, W - 20, 74, 9, '#ccc', 'right');
@@ -1313,8 +1365,7 @@ function drawTitle(t) {
   // desfile de personajes
   const cs = ['will', 'eleven', 'mike', 'lucas', 'dustin', 'steve'];
   cs.forEach((id, i) => {
-    const sc = id === 'will' ? 1.1 : 1;
-    sprite(id, 'walk', Math.floor(t * 8 + i) % ATLAS[id].anims.walk.n, 70 + i * 62, 450, sc);
+    sprite(id, 'walk', Math.floor(t * 8 + i) % ATLAS[id].anims.walk.n, 36 + i * 46, 450, 0.8); // a la izquierda, sin tapar el menú
   });
   sprite('demogorgon', 'walk', Math.floor(t * 7) % ATLAS.demogorgon.anims.walk.n, 760, 450, 1.2, true);
   sprite('vecna', 'idle', 0, 865, 450 + Math.sin(t * 2) * 1.5, 1.0, true); // en la portada espera quieto; solo camina en el juego
@@ -1334,7 +1385,7 @@ function drawSelect(t) {
     const c = CHARS[id], x = x0 + i * (cw + gap), y = 90, sel = i === G.sel;
     ctx.fillStyle = sel ? 'rgba(120,10,30,.8)' : 'rgba(20,5,15,.75)'; ctx.fillRect(x, y, cw, 360);
     ctx.strokeStyle = sel ? '#ffd34d' : '#6a2030'; ctx.lineWidth = sel ? 4 : 2; ctx.strokeRect(x, y, cw, 360);
-    const sc = (id === 'will' ? 1.45 : 1.3) * (sel ? 1.08 : 1);
+    const sc = 1.3 * (sel ? 1.08 : 1);
     sprite(id, sel ? 'idle' : 'idle', sel ? Math.floor(t * 5) % 4 : 0, x + cw / 2, y + 190, sc);
     text(c.name, x + cw / 2, y + 225, 13, sel ? '#ffd34d' : '#fff', 'center');
     text(c.tag, x + cw / 2, y + 245, 7, '#9fe0ff', 'center');
@@ -1443,6 +1494,8 @@ function drawMenuScreen() {
 }
 
 function drawTitleMenu() {
+  const n = menuItems().length;
+  ctx.fillStyle = 'rgba(6,0,10,.55)'; ctx.fillRect(W / 2 - 175, 278, 350, n * 36 + 16); // fondo para que se lea el menú
   menuItems().forEach((it, i) => {
     const y = 305 + i * 36, sel = i === M.idx;
     text((sel ? '> ' : '') + it.label + (sel ? ' <' : ''), W / 2, y, 18, sel ? '#ffd34d' : '#fff', 'center');
@@ -1465,8 +1518,8 @@ function frame(now) {
       break;
     case 'select':
       drawSelect(tAcc);
-      if (tap(...NAV.left)) { G.sel = (G.sel + 4) % 5; Snd.ok(); }
-      if (tap(...NAV.right)) { G.sel = (G.sel + 1) % 5; Snd.ok(); }
+      if (tap(...NAV.left)) { G.sel = (G.sel + ORDER.length - 1) % ORDER.length; Snd.ok(); }
+      if (tap(...NAV.right)) { G.sel = (G.sel + 1) % ORDER.length; Snd.ok(); }
       if (tap('Enter', 'Space', 'KeyZ')) { G.charId = ORDER[G.sel]; Snd.pick(); newGame(); }
       if (tap('Escape')) { G.state = 'title'; openMenu('title'); }
       break;

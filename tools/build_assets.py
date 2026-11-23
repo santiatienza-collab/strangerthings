@@ -225,7 +225,7 @@ atlas['will'] = build_char('will', 'will.png', (21, 16, 24), {
     'walk':  ((635, 538, 1450, 690), 6, 'c'),
     'shoot': ((40, 768, 712, 925), 5, ('l', 52)),
     'other': ((735, 764, 1520, 925), 7, 'c'),
-}, idle_h=80, override={'walk': dict(sheet='Gemini_Generated_Image_5lqkgz5lqkgz5lqk.jpeg', bg=(26, 25, 31), box=(60, 88, 1230, 335), left=(40, 495, 1230, 745), n=6)}, blank=[(40, 490, 215, 540), (625, 490, 790, 540), (40, 712, 250, 764), (745, 712, 975, 764)])
+}, idle_h=111, override={'walk': dict(sheet='Gemini_Generated_Image_5lqkgz5lqkgz5lqk.jpeg', bg=(26, 25, 31), box=(60, 88, 1230, 335), left=(40, 495, 1230, 745), n=6)}, blank=[(40, 490, 215, 540), (625, 490, 790, 540), (40, 712, 250, 764), (745, 712, 975, 764)])
 atlas['demogorgon'] = build_char('demogorgon', 'demogorgon.png', (19, 18, 25), {
     'idle':   ((45, 452, 595, 595), 4, 'c'),
     'walk':   ((622, 452, 1490, 595), 6, 'c'),
@@ -272,7 +272,7 @@ atlas['lucas'] = build_char('lucas', 'lucas2.png', (22, 16, 24), {
     'idle':  ((60, 535, 530, 685), 4, 'torso'),
     'shoot': ((40, 770, 715, 920), 5, 'torso'),
     'other': ((755, 775, 1515, 920), 7, 'torso'),
-}, idle_h=84, override={'walk': dict(sheet='lucas1.png', bg=(26, 22, 30), box=(320, 78, 1875, 292), left=(320, 345, 1875, 560), n=8, scrub=False)})
+}, idle_h=111, override={'walk': dict(sheet='lucas1.png', bg=(26, 22, 30), box=(320, 78, 1875, 292), left=(320, 345, 1875, 560), n=8, scrub=False)})
 # --- Vecna (vicna.png): hoja nueva de 8 frames por animación, sin reescalado suave (nítido)
 def build_vecna(sheet='vicna.png', bg=(11, 8, 11), target_h=176):
     img = Image.open(os.path.join(SRC, sheet)).convert('RGB')

@@ -37,33 +37,60 @@
   #lzone { position: absolute; left: 0; top: calc(var(--u) * 24); bottom: 0; width: 46vw; }
   #haptic { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
 
+  /* aspecto "cristal": translúcido en reposo (se ve el juego debajo) y más vivo al pulsar */
+  :root { --glass: rgba(255,255,255,.07); --edge: rgba(255,255,255,.30); --ink: rgba(255,255,255,.78); }
+  #dpad, .tb { opacity: .62; transition: opacity .12s; }
+  #dpad.act, .tb.on, #tpause.on, #tfull.on { opacity: 1; }
   #dpad { position: absolute; left: calc(var(--u) * 4 + env(safe-area-inset-left, 0px)); bottom: calc(var(--u) * 5 + env(safe-area-inset-bottom, 0px)); pointer-events: none; width: calc(var(--u) * 42); height: calc(var(--u) * 42); }
   #dpad.float { left: var(--px); top: var(--py); bottom: auto; }
-  #dpad::before { content: ''; position: absolute; inset: calc(var(--u) * 6); border-radius: 50%; border: calc(var(--u) * .4) dashed rgba(255,255,255,.14); }
-  #dpad i, .tb {
-    position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
-    background: rgba(255, 255, 255, .10); border: calc(var(--u) * .5) solid rgba(255, 255, 255, .38);
-    color: rgba(255, 255, 255, .62); font: 700 calc(var(--u) * 2.6) monospace; letter-spacing: 0;
+  #dpad::before { /* base circular */
+    content: ''; position: absolute; inset: calc(var(--u) * 2); border-radius: 50%;
+    background: radial-gradient(circle at 50% 40%, rgba(255,255,255,.13), rgba(255,255,255,.04) 62%, rgba(0,0,0,.14));
+    border: calc(var(--u) * .45) solid var(--edge); box-shadow: inset 0 0 calc(var(--u) * 3) rgba(255,255,255,.10), 0 calc(var(--u) * .4) calc(var(--u) * 2) rgba(0,0,0,.35);
+    -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
   }
-  #dpad i { width: calc(var(--u) * 14); height: calc(var(--u) * 14); border-radius: calc(var(--u) * 3); }
-  #dpad i::before { content: ''; width: 46%; height: 46%; background: currentColor; }
-  #dpad [data-d=up]    { left: calc(var(--u) * 14); top: 0; }
-  #dpad [data-d=left]  { left: 0; top: calc(var(--u) * 14); }
-  #dpad [data-d=right] { left: calc(var(--u) * 28); top: calc(var(--u) * 14); }
-  #dpad [data-d=down]  { left: calc(var(--u) * 14); top: calc(var(--u) * 28); }
+  #dpad i { position: absolute; width: calc(var(--u) * 11); height: calc(var(--u) * 11); display: flex; align-items: center; justify-content: center; color: var(--ink); transition: color .08s, filter .08s; }
+  #dpad i::before { content: ''; width: 44%; height: 44%; background: currentColor; }
+  #dpad [data-d=up]    { left: calc(50% - var(--u) * 5.5); top: calc(var(--u) * 3); }
+  #dpad [data-d=down]  { left: calc(50% - var(--u) * 5.5); bottom: calc(var(--u) * 3); }
+  #dpad [data-d=left]  { top: calc(50% - var(--u) * 5.5); left: calc(var(--u) * 3); }
+  #dpad [data-d=right] { top: calc(50% - var(--u) * 5.5); right: calc(var(--u) * 3); }
   #dpad [data-d=up]::before    { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
   #dpad [data-d=down]::before  { clip-path: polygon(0 0, 100% 0, 50% 100%); }
   #dpad [data-d=left]::before  { clip-path: polygon(100% 0, 100% 100%, 0 50%); }
   #dpad [data-d=right]::before { clip-path: polygon(0 0, 100% 50%, 0 100%); }
+  #dpad i.on { color: #ffd34d; filter: drop-shadow(0 0 calc(var(--u) * 1) rgba(255,200,60,.9)); }
+  #knob { /* pomo que sigue al dedo */
+    position: absolute; left: 50%; top: 50%; width: calc(var(--u) * 15); height: calc(var(--u) * 15); margin: calc(var(--u) * -7.5) 0 0 calc(var(--u) * -7.5); border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.38), rgba(255,255,255,.10) 60%, rgba(255,255,255,.04));
+    border: calc(var(--u) * .4) solid rgba(255,255,255,.45); box-shadow: 0 calc(var(--u) * .5) calc(var(--u) * 1.6) rgba(0,0,0,.4); transform: translate(var(--kx, 0px), var(--ky, 0px));
+  }
+  #dpad.act #knob { background: radial-gradient(circle at 35% 30%, rgba(255,230,160,.55), rgba(255,170,60,.18) 62%, rgba(255,150,50,.08)); border-color: rgba(255,210,120,.85); }
 
-  .tb { border-radius: 50%; transition: transform .06s; }
+  .tb {
+    position: absolute; box-sizing: border-box; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * .4);
+    background: radial-gradient(circle at 35% 28%, rgba(255,255,255,.26), var(--glass) 58%, rgba(0,0,0,.16));
+    border: calc(var(--u) * .5) solid var(--edge); color: var(--ink);
+    box-shadow: inset 0 0 calc(var(--u) * 2.4) rgba(255,255,255,.12), 0 calc(var(--u) * .5) calc(var(--u) * 1.8) rgba(0,0,0,.4);
+    -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+    font: 700 calc(var(--u) * 1.9) monospace; letter-spacing: .05em; transition: transform .06s, background .08s, border-color .08s, opacity .12s;
+  }
+  .tb svg { width: 42%; height: 42%; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
   .tb::after { content: ''; position: absolute; inset: calc(var(--u) * -1.5); border-radius: 50%; } /* zona de toque más grande */
-  .tb.on { transform: scale(.93); }
-  .tb[data-a=fire] { right: calc(var(--u) * 4 + env(safe-area-inset-right, 0px));  bottom: calc(var(--u) * 5 + env(safe-area-inset-bottom, 0px));  width: calc(var(--u) * 23); height: calc(var(--u) * 23); }
-  .tb[data-a=jump] { right: calc(var(--u) * 15 + env(safe-area-inset-right, 0px)); bottom: calc(var(--u) * 29 + env(safe-area-inset-bottom, 0px)); width: calc(var(--u) * 20); height: calc(var(--u) * 20); }
-  .tb[data-a=gren] { right: calc(var(--u) * 31 + env(safe-area-inset-right, 0px)); bottom: calc(var(--u) * 8 + env(safe-area-inset-bottom, 0px));  width: calc(var(--u) * 18); height: calc(var(--u) * 18); }
-  #dpad i.on, .tb.on, #tpause.on { background: rgba(255, 70, 70, .38); border-color: rgba(255, 150, 150, .8); color: #fff; }
-  #tpause { right: calc(var(--u) * 2 + env(safe-area-inset-right, 0px)); top: calc(var(--u) * 15); width: calc(var(--u) * 11); height: calc(var(--u) * 11); font-size: calc(var(--u) * 3.4); }
+  .tb[data-a=fire] { --tint: 255,70,70;   right: calc(var(--u) * 4 + env(safe-area-inset-right, 0px));  bottom: calc(var(--u) * 5 + env(safe-area-inset-bottom, 0px));  width: calc(var(--u) * 23); height: calc(var(--u) * 23); border-color: rgba(255,120,120,.55); }
+  .tb[data-a=jump] { --tint: 90,170,255;  right: calc(var(--u) * 15 + env(safe-area-inset-right, 0px)); bottom: calc(var(--u) * 29 + env(safe-area-inset-bottom, 0px)); width: calc(var(--u) * 20); height: calc(var(--u) * 20); border-color: rgba(130,190,255,.55); }
+  .tb[data-a=gren] { --tint: 255,170,60;  right: calc(var(--u) * 31 + env(safe-area-inset-right, 0px)); bottom: calc(var(--u) * 8 + env(safe-area-inset-bottom, 0px));  width: calc(var(--u) * 18); height: calc(var(--u) * 18); border-color: rgba(255,190,100,.55); }
+  .tb.on { transform: scale(.92); color: #fff; border-color: rgba(var(--tint), .95);
+    background: radial-gradient(circle at 40% 32%, rgba(var(--tint), .55), rgba(var(--tint), .22) 62%, rgba(var(--tint), .10)); box-shadow: 0 0 calc(var(--u) * 3) rgba(var(--tint), .7), inset 0 0 calc(var(--u) * 2.4) rgba(255,255,255,.2); }
+  .tsm { /* botones pequeños: pausa y pantalla completa */
+    position: absolute; top: calc(var(--u) * 15); width: calc(var(--u) * 10); height: calc(var(--u) * 10); border-radius: 50%; box-sizing: border-box; padding: 0; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 35% 28%, rgba(255,255,255,.22), var(--glass) 60%, rgba(0,0,0,.14)); border: calc(var(--u) * .4) solid var(--edge); color: var(--ink); opacity: .55; transition: opacity .12s, transform .06s;
+    box-shadow: 0 calc(var(--u) * .4) calc(var(--u) * 1.4) rgba(0,0,0,.35);
+  }
+  .tsm svg { width: 46%; height: 46%; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .tsm.on { transform: scale(.92); border-color: rgba(255,210,120,.9); color: #fff; }
+  #tpause { right: calc(var(--u) * 2 + env(safe-area-inset-right, 0px)); }
+  #tfull  { right: calc(var(--u) * 14 + env(safe-area-inset-right, 0px)); }
 
   #install {
     position: fixed; z-index: 6; left: calc(var(--u) * 2 + env(safe-area-inset-left, 0px)); top: calc(var(--u) * 21); padding: calc(var(--u) * 1.6) calc(var(--u) * 2.4);
@@ -87,11 +114,12 @@
 
 <div id="touch">
   <div id="lzone"></div>
-  <div id="dpad"><i data-d="up"></i><i data-d="left"></i><i data-d="right"></i><i data-d="down"></i></div>
-  <button class="tb" data-a="jump" type="button">SALTO</button>
-  <button class="tb" data-a="fire" type="button">FUEGO</button>
-  <button class="tb" data-a="gren" type="button">BOMBA</button>
-  <button class="tb" id="tpause" type="button" aria-label="Pausa">II</button>
+  <div id="dpad"><i data-d="up"></i><i data-d="left"></i><i data-d="right"></i><i data-d="down"></i><b id="knob"></b></div>
+  <button class="tb" data-a="jump" type="button" aria-label="Saltar"><svg viewBox="0 0 24 24"><path d="M5 14l7-7 7 7M5 20l7-7 7 7"/></svg>SALTO</button>
+  <button class="tb" data-a="fire" type="button" aria-label="Disparar"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/><circle cx="12" cy="12" r="1.2"/></svg>FUEGO</button>
+  <button class="tb" data-a="gren" type="button" aria-label="Bomba o lanzar objeto"><svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="7"/><path d="M10 7h4M14 7l3-3M9 12a4 4 0 0 1 3-2"/></svg>BOMBA</button>
+  <button class="tsm" id="tfull" type="button" aria-label="Pantalla completa"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  <button class="tsm" id="tpause" type="button" aria-label="Pausa"><svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg></button>
   <label id="haptic" aria-hidden="true"><input type="checkbox" switch></label>
 </div>
 <div id="rotate">GIRA EL MOVIL<br>PARA JUGAR (HORIZONTAL)</div>

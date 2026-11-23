@@ -7,8 +7,11 @@
   const android = /Android/i.test(ua);
   // iPadOS 13+ se identifica como Mac: se distingue por tener pantalla táctil
   const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  if (!android && !ios && q.get('touch') !== '1') return;
-
+  // móviles/tablets, cualquier pantalla táctil (puntero "grueso") o ?touch=1; en portátiles táctiles se activa al primer toque
+  const want = android || ios || matchMedia('(pointer: coarse)').matches || q.get('touch') === '1';
+  let started = false;
+  function init() {
+  if (started) return; started = true;
   const body = document.body;
   body.classList.add('touch');
 
@@ -34,7 +37,7 @@
   });
   // iOS no tiene "instalar": se explica cómo añadirlo a la pantalla de inicio (una vez)
   const hint = document.getElementById('ioshint');
-  let hintDone = false;
+  let hintDone = false, hintUntil = 0;
   try { hintDone = localStorage.getItem('strangerslug.iosHint') === '1'; } catch (e) { /* ignorar */ }
   document.getElementById('ioshintx').addEventListener('click', () => {
     hintDone = true; hint.style.display = 'none';
@@ -43,7 +46,7 @@
   setInterval(() => { // el botón solo aparece en el título, si el navegador permite instalar
     const show = deferred && !standalone && window.SSInput && SSInput.state() === 'title';
     installBtn.style.display = show ? 'block' : 'none';
-    const showHint = ios && !standalone && !hintDone && window.SSInput && SSInput.state() === 'title' && innerWidth > innerHeight;
+    const showHint = performance.now() < hintUntil || (ios && !standalone && !hintDone && window.SSInput && SSInput.state() === 'title' && innerWidth > innerHeight);
     hint.style.display = showHint ? 'block' : 'none';
   }, 400);
 
@@ -148,6 +151,7 @@
     pad.style.setProperty('--px', (cx - size / 2) + 'px');
     pad.style.setProperty('--py', (cy - size / 2) + 'px');
   };
+  const knob = document.getElementById('knob');
   const padMove = e => {
     const half = size / 2;
     let dx = e.clientX - cx, dy = e.clientY - cy;
@@ -157,6 +161,8 @@
       dx = e.clientX - cx; dy = e.clientY - cy; place();
     }
     setDirs(dirsFor(dx / half, dy / half));
+    const k = Math.min(1, Math.hypot(dx, dy) / (half * 0.62)), ang = Math.atan2(dy, dx), r = half * 0.42 * k; // el pomo sigue al dedo dentro del aro
+    pad.style.setProperty('--kx', Math.cos(ang) * r + 'px'); pad.style.setProperty('--ky', Math.sin(ang) * r + 'px');
   };
   let padId = null; // dedo que controla la cruceta
   zone.addEventListener('pointerdown', e => {
@@ -167,17 +173,33 @@
     const half = size / 2;
     cx = Math.min(Math.max(e.clientX, half + 4), innerWidth * 0.5);
     cy = Math.min(Math.max(e.clientY, half + 4), innerHeight - half - 4);
-    place(); pad.classList.add('float'); buzz();
+    place(); pad.classList.add('float', 'act'); buzz();
     padMove(e);
   });
   zone.addEventListener('pointermove', e => { if (e.pointerId === padId) padMove(e); });
   const padUp = e => {
     if (e && e.pointerId !== undefined && e.pointerId !== padId) return;
-    padId = null; setDirs([]); pad.classList.remove('float');
+    padId = null; setDirs([]); pad.classList.remove('float', 'act');
+    pad.style.setProperty('--kx', '0px'); pad.style.setProperty('--ky', '0px');
   };
   zone.addEventListener('pointerup', padUp);
   zone.addEventListener('pointercancel', padUp);
   zone.addEventListener('lostpointercapture', padUp);
+
+  /* ------------------------------------------------------- pantalla completa */
+  const fullBtn = document.getElementById('tfull');
+  const fsOn = () => document.fullscreenElement || document.webkitFullscreenElement;
+  if (standalone) fullBtn.style.display = 'none'; // la app instalada ya va a pantalla completa
+  fullBtn.addEventListener('pointerdown', e => {
+    e.preventDefault(); fullBtn.classList.add('on');
+    const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (fsOn()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+    else if (req) {
+      try { const p = req.call(el); if (p && p.then) p.then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(() => {}); } catch (err) { /* ignorar */ }
+    } else { hintUntil = performance.now() + 8000; hint.style.display = 'block'; } // iPhone: solo "Añadir a pantalla de inicio"
+  });
+  const fUp = () => fullBtn.classList.remove('on');
+  fullBtn.addEventListener('pointerup', fUp); fullBtn.addEventListener('pointercancel', fUp);
 
   /* ----------------------------------------------------------------- pausa */
   const pauseBtn = document.getElementById('tpause');
@@ -199,4 +221,7 @@
   });
 
   window.TouchLogic = { dirsFor }; // para pruebas
+  }
+  if (want) init();
+  else addEventListener('pointerdown', e => { if (e.pointerType === 'touch') init(); }, true);
 })();
