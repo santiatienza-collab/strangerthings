@@ -129,6 +129,26 @@ def sheet_frames(sheet, bg, box, n, thr=26, scrub=True, cut_thr=None, local_bg=F
     ct = cut_thr or thr
     return [thin_clean(fr) for fr in (cut(crop, r, bg, ct, inner=min(12, ct), local_bg=local_bg, solid_top=solid_top, fg_thr=fg_thr) for r in runs) if fr is not None]
 
+def swap_heads(frames, cut=0.43):
+    """misma cabeza en todos los frames: la del primero sustituye a las demás, alineada por el centro de la cabeza.
+    Evita que la cara 'gire' de un frame a otro cuando el dibujo original no es consistente."""
+    def head_box(fr):
+        a = fr.getchannel('A').load(); H = int(fr.height * cut)
+        xs = [x for y in range(H) for x in range(fr.width) if a[x, y]]
+        return min(xs), max(xs), H
+    ref = frames[0]; rx0, rx1, H = head_box(ref)
+    head = ref.crop((rx0, 0, rx1 + 1, H)); hw = rx1 - rx0 + 1
+    out = [ref]
+    for f in frames[1:]:
+        x0, x1, _ = head_box(f)
+        cx = (x0 + x1) // 2; left = cx - hw // 2
+        g = f.copy(); gp = g.load()
+        for y in range(H):
+            for x in range(max(0, left - 1), min(g.width, left + hw + 1)): gp[x, y] = (0, 0, 0, 0)
+        g.alpha_composite(head, (left, 0)) if left >= 0 and left + hw <= g.width else g.paste(head, (max(0, left), 0), head)
+        out.append(g)
+    return out
+
 def head_x(fr):
     """ancla de los frames de andar: centro de cabeza y tronco (8%-45% de la altura), que apenas se mueven en el ciclo;
     así el cuerpo no tiembla al cambiar de frame como con el centro del recuadro"""
@@ -195,6 +215,7 @@ def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, 
             pick = ov.get('pick')            # ciclo simétrico: solo estos frames, en este orden
             sel = (lambda frs: [frs[i] for i in pick if i < len(frs)]) if pick else (lambda frs: [f for i, f in enumerate(frs) if i not in drop])
             right = sel(sheet_frames(osheet, obg, obox, on, **kw))
+            if ov.get('same_head'): right = swap_heads(right)
             k = h_idle / sorted(f.height for f in right)[len(right)//2]
             sets = {anim: right}
             if ov.get('left'):  # fila "Walk ←" de la hoja: se usa tal cual (sin voltear) al mirar a la izquierda
@@ -236,7 +257,7 @@ atlas['will'] = build_char('will', 'will.png', (21, 16, 24), {
     'walk':  ((635, 538, 1450, 690), 6, 'c'),
     'shoot': ((40, 768, 712, 925), 5, ('l', 52)),
     'other': ((735, 764, 1520, 925), 7, 'c'),
-}, idle_h=111, override={'walk': dict(sheet='will1.png', bg=(21, 16, 23), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8, mirror_left=True)}, blank=[(40, 490, 215, 540), (625, 490, 790, 540), (40, 712, 250, 764), (745, 712, 975, 764)])
+}, idle_h=111, override={'walk': dict(sheet='will1.png', bg=(21, 16, 23), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8, mirror_left=True, same_head=True)}, blank=[(40, 490, 215, 540), (625, 490, 790, 540), (40, 712, 250, 764), (745, 712, 975, 764)])
 atlas['demogorgon'] = build_char('demogorgon', 'demogorgon.png', (19, 18, 25), {
     'idle':   ((45, 452, 595, 595), 4, 'c'),
     'walk':   ((622, 452, 1490, 595), 6, 'c'),
