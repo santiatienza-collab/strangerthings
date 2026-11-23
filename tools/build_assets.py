@@ -301,10 +301,10 @@ atlas['steve'] = build_char('steve', S, DARK, {
               'run': dict(sheet='steve1.png', bg=(17, 13, 18), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8)})
 # --- Lucas (lucas1.png: andar; lucas2.png: reposo, tirachinas y otras acciones)
 atlas['lucas'] = build_char('lucas', 'lucas2.png', (22, 16, 24), {
-    'idle':  ((60, 535, 530, 685), 4, 'torso'),
+    'idle':  ((60, 541, 530, 685), 4, 'torso'),
     'shoot': ((40, 770, 715, 920), 5, 'torso'),
     'other': ((755, 775, 1515, 920), 7, 'torso'),
-}, idle_h=111, override={'walk': dict(sheet='lucas1.png', bg=(26, 22, 30), box=(320, 78, 1875, 292), left=(320, 345, 1875, 560), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8)})
+}, idle_h=111, solid_top=0.62, fg_thr=7, override={'walk': dict(sheet='lucas1.png', bg=(26, 22, 30), box=(320, 78, 1875, 292), left=(320, 345, 1875, 560), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8)})
 # --- Vecna (vicna.png): hoja nueva de 8 frames por animación, sin reescalado suave (nítido)
 def build_vecna(sheet='vicna.png', bg=(11, 8, 11), target_h=176):
     img = Image.open(os.path.join(SRC, sheet)).convert('RGB')
