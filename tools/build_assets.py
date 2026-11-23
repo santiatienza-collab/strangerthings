@@ -116,7 +116,7 @@ def cut(crop, run, bg, thr=26, solid=False, boost=1.0, inner=12, local_bg=False,
         print('   (aviso) frame toca el borde vertical del recorte', 'arriba' if bb[1] <= 0 else 'abajo')
     return out.crop(bb)
 
-def sheet_frames(sheet, bg, box, n, thr=26, scrub=True, cut_thr=None, local_bg=False, solid_top=0.0):
+def sheet_frames(sheet, bg, box, n, thr=26, scrub=True, cut_thr=None, local_bg=False, solid_top=0.0, fg_thr=14):
     img = Image.open(os.path.join(SRC, sheet)).convert('RGB')
     # borra la rejilla del panel: sus píxeles son grises apagados (el personaje no usa grises medios)
     x0, y0, x1, y1 = box
@@ -127,7 +127,7 @@ def sheet_frames(sheet, bg, box, n, thr=26, scrub=True, cut_thr=None, local_bg=F
             if 66 <= min(c) and max(c) <= 112 and max(c) - min(c) <= 20 and c[0] >= c[1] - 2: px[x, y] = bg
     crop, runs = frames_in(img, box, bg, thr, expect=n)
     ct = cut_thr or thr
-    return [thin_clean(fr) for fr in (cut(crop, r, bg, ct, inner=min(12, ct), local_bg=local_bg, solid_top=solid_top) for r in runs) if fr is not None]
+    return [thin_clean(fr) for fr in (cut(crop, r, bg, ct, inner=min(12, ct), local_bg=local_bg, solid_top=solid_top, fg_thr=fg_thr) for r in runs) if fr is not None]
 
 def head_x(fr):
     """ancla de los frames de andar: centro de cabeza y tronco (8%-45% de la altura), que apenas se mueven en el ciclo;
@@ -190,7 +190,7 @@ def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, 
         h_idle = next(fr.height for a, i, fr, _ in items if a == 'idle' and i == 0)
         for anim, ov in override.items():
             osheet, obg, obox, on = ov['sheet'], ov['bg'], ov['box'], ov['n']
-            kw = dict(thr=ov.get('thr', 26), scrub=ov.get('scrub', True), cut_thr=ov.get('cut_thr'), local_bg=ov.get('local_bg', False), solid_top=ov.get('solid_top', 0.0))
+            kw = dict(thr=ov.get('thr', 26), scrub=ov.get('scrub', True), cut_thr=ov.get('cut_thr'), local_bg=ov.get('local_bg', False), solid_top=ov.get('solid_top', 0.0), fg_thr=ov.get('fg_thr', 14))
             drop = set(ov.get('drop', ()))   # frames "de pie" (pies juntos) que harían parar el ciclo
             pick = ov.get('pick')            # ciclo simétrico: solo estos frames, en este orden
             sel = (lambda frs: [frs[i] for i in pick if i < len(frs)]) if pick else (lambda frs: [f for i, f in enumerate(frs) if i not in drop])
@@ -199,6 +199,7 @@ def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, 
             sets = {anim: right}
             if ov.get('left'):  # fila "Walk ←" de la hoja: se usa tal cual (sin voltear) al mirar a la izquierda
                 left = sel(sheet_frames(osheet, obg, ov['left'], on, **kw))
+                if ov.get('mirror_left'): left = [f.transpose(Image.FLIP_LEFT_RIGHT) for f in right]  # fila izquierda irregular: se usa el espejo
                 # si faltan fotogramas a la izquierda, se rellenan con el espejo de los de la derecha (y al revés)
                 while len(left) < len(right): left.append(right[len(left)].transpose(Image.FLIP_LEFT_RIGHT))
                 while len(right) < len(left): right.append(left[len(right)].transpose(Image.FLIP_LEFT_RIGHT))
@@ -235,7 +236,7 @@ atlas['will'] = build_char('will', 'will.png', (21, 16, 24), {
     'walk':  ((635, 538, 1450, 690), 6, 'c'),
     'shoot': ((40, 768, 712, 925), 5, ('l', 52)),
     'other': ((735, 764, 1520, 925), 7, 'c'),
-}, idle_h=111, override={'walk': dict(sheet='will1.png', bg=(21, 16, 23), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6])}, blank=[(40, 490, 215, 540), (625, 490, 790, 540), (40, 712, 250, 764), (745, 712, 975, 764)])
+}, idle_h=111, override={'walk': dict(sheet='will1.png', bg=(21, 16, 23), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8, mirror_left=True)}, blank=[(40, 490, 215, 540), (625, 490, 790, 540), (40, 712, 250, 764), (745, 712, 975, 764)])
 atlas['demogorgon'] = build_char('demogorgon', 'demogorgon.png', (19, 18, 25), {
     'idle':   ((45, 452, 595, 595), 4, 'c'),
     'walk':   ((622, 452, 1490, 595), 6, 'c'),
@@ -251,7 +252,7 @@ atlas['eleven'] = build_char('eleven', E, DARK, {
     'walk':  ((1040, 305, 1510, 430), 4, 'c'),
     'power': ((1040, 460, 1510, 590), 4, 'c'),
     'other': ((1040, 640, 1510, 760), 4, 'c'),
-}, override={'walk': dict(sheet='eleven1.png', bg=(22, 15, 21), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6])})
+}, override={'walk': dict(sheet='eleven1.png', bg=(22, 15, 21), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8, mirror_left=True)})
 # --- Mike (WA0027)
 atlas['mike'] = build_char('mike', 'IMG-20261121-WA0027.jpg', DARK, {
     'idle':  ((1045, 160, 1510, 285), 4, 'c'),
@@ -265,7 +266,7 @@ atlas['dustin'] = build_char('dustin', 'IMG-20261121-WA0028.jpg', DARK, {
     'walk':  ((1045, 305, 1510, 430), 4, 'c'),
     'talk':  ((1045, 460, 1510, 590), 4, 'c'),
     'other': ((1045, 640, 1510, 760), 4, 'c'),
-}, override={'walk': dict(sheet='dustin1.png', bg=(17, 13, 16), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6])})
+}, override={'walk': dict(sheet='dustin1.png', bg=(17, 13, 16), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8)})
 # --- Steve (WA0029)
 S = 'IMG-20261121-WA0029.jpg'
 atlas['steve'] = build_char('steve', S, DARK, {
@@ -275,14 +276,14 @@ atlas['steve'] = build_char('steve', S, DARK, {
     'attack': ((40, 810, 560, 955), 5, ('l', 40)),
     'hurt':   ((595, 825, 985, 955), 4, 'c'),
     'other':  ((1020, 815, 1440, 955), 4, 'c'),
-}, override={'walk': dict(sheet='steve1.png', bg=(17, 13, 18), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6]),
-              'run': dict(sheet='steve1.png', bg=(17, 13, 18), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6])})
+}, override={'walk': dict(sheet='steve1.png', bg=(17, 13, 18), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8),
+              'run': dict(sheet='steve1.png', bg=(17, 13, 18), box=(300, 75, 1900, 277), left=(300, 340, 1900, 551), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8)})
 # --- Lucas (lucas1.png: andar; lucas2.png: reposo, tirachinas y otras acciones)
 atlas['lucas'] = build_char('lucas', 'lucas2.png', (22, 16, 24), {
     'idle':  ((60, 535, 530, 685), 4, 'torso'),
     'shoot': ((40, 770, 715, 920), 5, 'torso'),
     'other': ((755, 775, 1515, 920), 7, 'torso'),
-}, idle_h=111, override={'walk': dict(sheet='lucas1.png', bg=(26, 22, 30), box=(320, 78, 1875, 292), left=(320, 345, 1875, 560), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6])})
+}, idle_h=111, override={'walk': dict(sheet='lucas1.png', bg=(26, 22, 30), box=(320, 78, 1875, 292), left=(320, 345, 1875, 560), n=8, scrub=False, pick=[0, 1, 2, 4, 5, 6], solid_top=0.45, fg_thr=8)})
 # --- Vecna (vicna.png): hoja nueva de 8 frames por animación, sin reescalado suave (nítido)
 def build_vecna(sheet='vicna.png', bg=(11, 8, 11), target_h=176):
     img = Image.open(os.path.join(SRC, sheet)).convert('RGB')

@@ -184,7 +184,7 @@ window.ATLAS = {
  "lucas": {
   "img": "assets/lucas.png",
   "cw": 155,
-  "ch": 115,
+  "ch": 114,
   "anims": {
    "idle": {
     "row": 0,

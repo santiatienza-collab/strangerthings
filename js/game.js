@@ -1375,7 +1375,7 @@ function drawTitle(t) {
   text('SLUG', W / 2, 215 + bob, 52, '#ff2a3a', 'center', '#2a0008');
   text('SHOOT & RUN EN EL MUNDO DEL REVES', W / 2, 252, 12, '#fff', 'center');
   // desfile de personajes
-  const cs = ['will', 'eleven', 'mike', 'lucas', 'dustin', 'steve'];
+  const cs = ['steve', 'dustin', 'lucas', 'mike', 'eleven', 'will']; // Will va el primero (a la derecha, mirando hacia delante)
   cs.forEach((id, i) => {
     sprite(id, 'walk', Math.floor(t * 8 + i) % ATLAS[id].anims.walk.n, 36 + i * 46, 450, 0.8); // a la izquierda, sin tapar el menú
   });
