@@ -177,6 +177,33 @@ window.ATLAS = {
    }
   }
  },
+ "lucas": {
+  "img": "assets/lucas.png",
+  "cw": 117,
+  "ch": 87,
+  "anims": {
+   "idle": {
+    "row": 0,
+    "n": 4
+   },
+   "shoot": {
+    "row": 1,
+    "n": 5
+   },
+   "other": {
+    "row": 2,
+    "n": 7
+   },
+   "walk": {
+    "row": 3,
+    "n": 8
+   },
+   "walkL": {
+    "row": 4,
+    "n": 8
+   }
+  }
+ },
  "vecna": {
   "img": "assets/vecna.png",
   "cw": 239,

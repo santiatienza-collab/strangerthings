@@ -4,7 +4,7 @@ Shoot & run de plataformas al estilo *Metal Slug*, ambientado en el Mundo del Re
 Hecho con HTML5 Canvas, sin dependencias: abre `index.html` o publícalo en GitHub Pages.
 
 ## Actos
-10 actos en dos escenarios: **Mundo del Revés** (actos 1-5, acaba con Vecna) y **Laboratorio HNL** (actos 6-10, jefe final doble). Los fondos se regeneran con `python3 tools/build_bg.py`. Depuración: `?char=will&stage=7` salta a un acto.
+20 actos en 6 escenarios: **Mundo del Revés** (1-3), **Laboratorio** (4-6), **Bosque** (7-10, jefe Vecna en el 10), **Casa Byers** (11-13), **Calle de Hawkins** (14-16) y **Mansión** (17-20, jefe final doble). Los fondos se regeneran con `python3 tools/build_bg.py`. Depuración: `?char=will&stage=7` salta a un acto.
 
 ## Controles
 Por defecto (todas se pueden cambiar en **AJUSTES → CONTROLES**; se guardan en el navegador):
@@ -20,9 +20,9 @@ Por defecto (todas se pueden cambiar en **AJUSTES → CONTROLES**; se guardan en
 | Pausa / menú | P o Esc |
 | Sonido / Pantalla completa | M / F |
 
-**Armas** (todas salen de la serie; solo Eleven no lleva arma, usa telequinesis): Will, rifle de caza; Mike, tirachinas Wrist Rocket; Dustin, pistola de bengalas; Steve, bate con clavos.
+**Armas** (todas salen de la serie; solo Eleven no lleva arma, usa telequinesis): Will, rifle de caza; Mike, tirachinas; Lucas, Wrist Rocket (más rápido y potente); Dustin, pistola de bengalas; Steve, bate con clavos.
 **Calor:** disparar sin parar sobrecalienta el arma (barra bajo ARMA): mantener pulsado dispara más lento y con menos puntería, y al llegar al máximo se bloquea 1,4 s. Disparar en ráfagas cortas lo enfría.
-**Objetos:** en cada acto hay objetos por el suelo (silla y extintor en el laboratorio; roca y bidón en el Mundo del Revés). Pasa por encima para cogerlos y lanza con BOMBA (C): la silla y la roca golpean fuerte a un enemigo; el extintor y el bidón explotan en área y aturden.
+**Objetos:** en cada acto hay objetos por el suelo (silla y extintor en el laboratorio; silla y lámpara en la casa y la mansión; roca y bidón en el resto). Pasa por encima para cogerlos y lanza con BOMBA (C): la silla y la roca golpean fuerte a un enemigo; el extintor y el bidón explotan en área y aturden.
 
 El menú de pausa incluye ajustes de música, efectos, temblor de pantalla y pantalla completa.
 

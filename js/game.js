@@ -122,8 +122,7 @@ async function loadAll() {
   const jobs = Object.keys(ATLAS).map(async k => { IMG[k] = await loadImg(ATLAS[k].img); });
   jobs.push(loadImg('assets/bg_far.png').then(i => IMG.far = i));
   jobs.push(loadImg('assets/bg_floor.png').then(i => IMG.floor = i));
-  jobs.push(loadImg('assets/lab_far.png').then(i => IMG.labFar = i));
-  jobs.push(loadImg('assets/lab_floor.png').then(i => IMG.labFloor = i));
+  for (const k of Object.keys(SCENES)) jobs.push(loadImg(`assets/scene_${k}.png`).then(i => IMG['scene_' + k] = i));
   await Promise.all(jobs);
 }
 
@@ -143,11 +142,12 @@ function sprite(name, anim, frame, x, y, scale = 1, flip = false, alpha = 1) {
 const CHARS = {
   will:   { name: 'WILL',   hp: 6, speed: 190, rate: 0.22, dmg: 1.2, bspeed: 720, kind: 'bullet', heat: 0.115, sc: 1.1,  tag: 'RIFLE CAZA',   stats: [3, 3, 4] },
   eleven: { name: 'ELEVEN', hp: 5, speed: 185, rate: 0.34, dmg: 1.7, bspeed: 520, kind: 'psy',    heat: 0.20, sc: 1.0,  tag: 'TELEQUINESIS', pierce: 2, stats: [2, 3, 5] },
-  mike:   { name: 'MIKE',   hp: 5, speed: 220, rate: 0.13, dmg: 0.7, bspeed: 660, kind: 'pellet', heat: 0.07, sc: 1.0,  tag: 'WRIST ROCKET', stats: [2, 5, 3] },
+  lucas:  { name: 'LUCAS',  hp: 5, speed: 205, rate: 0.30, dmg: 1.5, bspeed: 780, kind: 'pellet', heat: 0.13, sc: 1.05, tag: 'WRIST ROCKET', stats: [2, 4, 4] },
+  mike:   { name: 'MIKE',   hp: 5, speed: 220, rate: 0.13, dmg: 0.7, bspeed: 660, kind: 'pellet', heat: 0.07, sc: 1.0,  tag: 'TIRACHINAS',  stats: [2, 5, 3] },
   dustin: { name: 'DUSTIN', hp: 6, speed: 195, rate: 0.38, dmg: 0.8, bspeed: 570, kind: 'flare',  heat: 0.20, sc: 1.0,  tag: 'BENGALAS x3', stats: [3, 3, 3] },
   steve:  { name: 'STEVE',  hp: 8, speed: 225, rate: 0.45, dmg: 3.0, melee: true,   sc: 0.95, tag: 'BATE CLAVOS', stats: [5, 4, 4] },
 };
-const ORDER = ['will', 'eleven', 'mike', 'dustin', 'steve'];
+const ORDER = ['will', 'eleven', 'mike', 'lucas', 'dustin', 'steve'];
 
 const ETYPES = {
   demo:   { hp: 3,  sp: 62,  w: 46, h: 100, sc: 1.1, score: 100,  reach: 64,  dmg: 1, wind: 0.4 },
@@ -156,19 +156,42 @@ const ETYPES = {
   vecna:  { hp: 150, sp: 70, w: 64, h: 160, sc: 1.0, score: 15000, reach: 0, dmg: 2, wind: 0 },
 };
 
-// world: 'up' = Mundo del Revés (actos 1-5), 'lab' = Laboratorio HNL (actos 6-10)
-const STAGES = [
-  { world: 'up',  name: 'ACTO 1',  sub: 'LAS RAICES DEL REVES',    len: 4600, tint: 'rgba(0,0,0,0)',      boss: ['brute'],          mix: [['demo', .8], ['runner', .2]] },
-  { world: 'up',  name: 'ACTO 2',  sub: 'EL BOSQUE DE LIANAS',     len: 5000, tint: 'rgba(60,0,80,.22)',  boss: ['brute'],          mix: [['demo', .6], ['runner', .35], ['brute', .05]] },
-  { world: 'up',  name: 'ACTO 3',  sub: 'EL PANTANO DE ESPORAS',   len: 5400, tint: 'rgba(30,60,0,.24)',  boss: ['brute', 'brute'], mix: [['demo', .5], ['runner', .4], ['brute', .1]] },
-  { world: 'up',  name: 'ACTO 4',  sub: 'LAS CUEVAS DE CARNE',     len: 5600, tint: 'rgba(90,0,20,.30)',  boss: ['brute', 'brute'], mix: [['demo', .4], ['runner', .5], ['brute', .1]] },
-  { world: 'up',  name: 'ACTO 5',  sub: 'LA MENTE DE VECNA',       len: 5200, tint: 'rgba(8,0,24,.42)',   boss: ['vecna'],          mix: [['demo', .4], ['runner', .5], ['brute', .1]] },
-  { world: 'lab', name: 'ACTO 6',  sub: 'LABORATORIO HAWKINS',     len: 5000, tint: 'rgba(0,20,50,.16)',  boss: ['brute'],          mix: [['demo', .6], ['runner', .4]] },
-  { world: 'lab', name: 'ACTO 7',  sub: 'PASILLOS DE CONTENCION',  len: 5400, tint: 'rgba(0,30,40,.24)',  boss: ['brute', 'brute'], mix: [['demo', .45], ['runner', .45], ['brute', .1]] },
-  { world: 'lab', name: 'ACTO 8',  sub: 'SALA DE EXPERIMENTOS',    len: 5600, tint: 'rgba(110,0,0,.24)',  boss: ['brute', 'brute'], mix: [['demo', .4], ['runner', .5], ['brute', .1]] },
-  { world: 'lab', name: 'ACTO 9',  sub: 'EL SOTANO DE LAB 11',     len: 5800, tint: 'rgba(0,0,20,.42)',   boss: ['brute', 'brute', 'brute'], mix: [['demo', .35], ['runner', .5], ['brute', .15]] },
-  { world: 'lab', name: 'ACTO 10', sub: 'EL ULTIMO PORTAL',        len: 5600, tint: 'rgba(60,0,40,.40)',  boss: ['brute', 'vecna'], mix: [['demo', .35], ['runner', .5], ['brute', .15]] },
+// Escenarios: 'up' Mundo del Revés (actos 1-3, dos capas); el resto son panorámicas que se repiten (actos 4-20).
+// y = desplazamiento vertical para que el suelo del dibujo quede a la altura donde andan los personajes.
+const SCENES = {
+  lab:     { y: -20, spore: '#d8ecff', name: 'LABORATORIO' },
+  forest:  { y: -20, spore: '#ff9a8a', name: 'BOSQUE' },
+  house:   { y: -30, spore: '#ffd9a0', name: 'CASA' },
+  street:  { y: -35, spore: '#ffb08a', name: 'CALLE' },
+  mansion: { y: -25, spore: '#ff9a9a', name: 'MANSION' },
+};
+const mixFor = n => { // más corredores y brutos conforme avanza la partida
+  const b = Math.min(0.2, Math.max(0, (n - 2) * 0.012)), r = Math.min(0.55, 0.2 + n * 0.03);
+  return [['demo', Math.max(0.25, 1 - r - b)], ['runner', r], ['brute', b]].filter(m => m[1] > 0);
+};
+const ACTS = [ // [mundo, subtítulo, tinte, jefes]
+  ['up', 'LAS RAICES DEL REVES', 'rgba(0,0,0,0)', ['brute']],
+  ['up', 'EL BOSQUE DE LIANAS', 'rgba(60,0,80,.2)', ['brute']],
+  ['up', 'LA PUERTA DE VECNA', 'rgba(8,0,24,.34)', ['brute', 'brute']],
+  ['lab', 'LABORATORIO HAWKINS', 'rgba(0,10,30,.10)', ['brute']],
+  ['lab', 'PASILLOS ROTOS', 'rgba(0,20,40,.16)', ['brute']],
+  ['lab', 'EL NUCLEO DEL LAB', 'rgba(60,0,0,.2)', ['brute', 'brute']],
+  ['forest', 'EL BOSQUE MALDITO', 'rgba(0,0,0,0)', ['brute']],
+  ['forest', 'NIEBLA ROJA', 'rgba(40,0,30,.16)', ['brute']],
+  ['forest', 'EL CLARO DE LAS ESPORAS', 'rgba(20,40,0,.18)', ['brute', 'brute']],
+  ['forest', 'EL ARBOL DE VECNA', 'rgba(20,0,30,.3)', ['vecna']],
+  ['house', 'LA CASA BYERS', 'rgba(60,20,0,.08)', ['brute']],
+  ['house', 'LAS LUCES DE JOYCE', 'rgba(60,0,40,.14)', ['brute']],
+  ['house', 'EL SOTANO DE LA CASA', 'rgba(0,0,20,.34)', ['brute', 'brute']],
+  ['street', 'BIENVENIDOS A HAWKINS', 'rgba(20,0,40,.1)', ['brute']],
+  ['street', 'LA CALLE PRINCIPAL', 'rgba(40,0,30,.18)', ['brute']],
+  ['street', 'LA TORRE DE AGUA', 'rgba(60,0,0,.24)', ['brute', 'brute']],
+  ['mansion', 'LA MANSION', 'rgba(20,0,30,.16)', ['brute']],
+  ['mansion', 'EL JARDIN MUERTO', 'rgba(40,0,20,.24)', ['brute', 'brute']],
+  ['mansion', 'EL SALON DEL TERROR', 'rgba(10,0,20,.34)', ['brute', 'brute', 'brute']],
+  ['mansion', 'EL ULTIMO PORTAL', 'rgba(60,0,40,.40)', ['brute', 'vecna']],
 ];
+const STAGES = ACTS.map(([world, sub, tint, boss], i) => ({ world, name: `ACTO ${i + 1}`, sub, tint, boss, len: Math.min(6200, 4600 + i * 110), mix: mixFor(i) }));
 
 // objetos lanzables: dmg directo, aoe = radio de explosión, cd = retraso que provoca a los enemigos afectados
 const PROPS = {
@@ -176,8 +199,9 @@ const PROPS = {
   extinguisher: { name: 'EXTINTOR', dmg: 3, aoe: 105, cd: 1.6 },
   rock:         { name: 'ROCA',    dmg: 6, aoe: 0,   cd: 0 },
   barrel:       { name: 'BIDON',   dmg: 6, aoe: 125, cd: 0.8 },
+  lamp:         { name: 'LAMPARA', dmg: 5, aoe: 0,   cd: 0 },
 };
-const PROP_WORLD = { up: ['rock', 'barrel'], lab: ['chair', 'extinguisher'] };
+const PROP_WORLD = { up: ['rock', 'barrel'], lab: ['chair', 'extinguisher'], forest: ['rock', 'barrel'], house: ['chair', 'lamp'], street: ['barrel', 'rock'], mansion: ['chair', 'lamp'] };
 
 const rngMaker = s => () => (s = (s * 16807) % 2147483647) / 2147483647;
 
@@ -399,13 +423,13 @@ function updatePlayer(dt) {
 
 function playerPose(p) {
   const id = p.id, mv = Math.abs(p.vx) > 5;
-  if (p.dead) return id === 'steve' ? ['hurt', 3] : ['other', id === 'will' ? 6 : 3];
-  if (p.hurtT > 0) return id === 'steve' ? ['hurt', 0] : id === 'will' ? ['other', 4] : ['other', 1];
+  if (p.dead) return id === 'steve' ? ['hurt', 3] : ['other', id === 'will' || id === 'lucas' ? 6 : 3];
+  if (p.hurtT > 0) return id === 'steve' ? ['hurt', 0] : id === 'will' || id === 'lucas' ? ['other', 4] : ['other', 1];
   if (p.melee > 0) return ['attack', Math.min(4, Math.floor((1 - p.melee / 0.36) * 5))];
-  if (p.crouch) return ['other', id === 'will' ? 1 : 0];
+  if (p.crouch) return ['other', id === 'will' || id === 'lucas' ? 1 : 0];
   if (p.shootT > 0) {
     const hot = p.shootT > 0.12;
-    if (id === 'will') return ['shoot', hot ? 2 : 1];
+    if (id === 'will' || id === 'lucas') return ['shoot', hot ? 2 : 1];
     if (id === 'eleven') return ['power', hot ? 3 : 2];
     return ['talk', hot ? 2 : 1];
   }
@@ -648,7 +672,7 @@ function updatePlay(dt) {
     G.bossDelay -= dt;
     if (G.bossDelay <= 0) {
       const t = G.bossQueue.shift();
-      const e = spawnEnemy(t, G.cam.x + W + 80, -1, t === 'brute' ? 34 + G.stage * 6 : (t === 'vecna' && G.stage >= 9 ? 220 : undefined));
+      const e = spawnEnemy(t, G.cam.x + W + 80, -1, t === 'brute' ? 34 + G.stage * 4 : (t === 'vecna' ? (G.stage >= 19 ? 260 : 175) : undefined));
       e.boss = true; if (t === 'brute') { e.state = 'roar'; Snd.roar(); }
       G.bossDelay = 1.6;
     }
@@ -810,25 +834,35 @@ function tiled(img, y, h, par, camX, noMirror = false) {
 }
 
 function drawBackground(camX, t) {
-  const S = H / 1024;
-  const lab = STAGES[G.stage || 0].world === 'lab';
-  if (lab) tiled(IMG.labFar, 0, 750 * S, 0.35, camX, true); // el fondo del laboratorio ya es periódico
-  else tiled(IMG.far, 0, 750 * S, 0.35, camX);
-  // espinas del cielo / polvo del laboratorio
-  ctx.fillStyle = STAGES[G.stage || 0].tint; ctx.fillRect(0, 0, W, 750 * S);
+  const S = H / 1024, world = STAGES[G.stage || 0].world, sc = SCENES[world];
+  if (!sc) tiled(IMG.far, 0, 750 * S, 0.35, camX);
+  else { // panorámica a ancho completo, a la misma velocidad que el suelo
+    ctx.fillStyle = '#0a0306'; ctx.fillRect(0, 0, W, H);
+    tiled(IMG['scene_' + world], sc.y, H, 1, camX, true);
+  }
+  ctx.fillStyle = STAGES[G.stage || 0].tint; ctx.fillRect(0, 0, W, sc ? H : 750 * S);
   for (const s of spores) {
     const x = ((s.x - camX * s.par * 0.6 - t * 6) % W + W) % W, y = (s.y - t * s.v) % GROUND;
     ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 2 + s.ph);
-    ctx.fillStyle = lab ? '#d8ecff' : '#ffb0b0'; ctx.fillRect(x, y < 0 ? y + GROUND : y, s.s, s.s);
+    ctx.fillStyle = sc ? sc.spore : '#ffb0b0'; ctx.fillRect(x, y < 0 ? y + GROUND : y, s.s, s.s);
   }
   ctx.globalAlpha = 1;
-  if (lab) tiled(IMG.labFloor, 750 * S - 1, H - 750 * S + 1, 1, camX);
-  else tiled(IMG.floor, 750 * S - 1, H - 750 * S + 1, 1, camX);
+  if (!sc) tiled(IMG.floor, 750 * S - 1, H - 750 * S + 1, 1, camX);
 }
 
 function drawPlatform(pl, camX) {
   const x = Math.round(pl.x - camX), y = pl.y;
-  if (STAGES[G.stage || 0].world === 'lab') { // pasarela metálica del laboratorio
+  const world = STAGES[G.stage || 0].world;
+  if (world !== 'up' && world !== 'lab') { // tablones / hormigón según el escenario
+    const P = { forest: ['#5a2a22', '#24100e', '#e0563a'], house: ['#7a5230', '#33200f', '#d9a35c'], street: ['#6f6a75', '#2c2a33', '#b9b4c4'], mansion: ['#4a3a42', '#1a1216', '#c04a5a'] }[world];
+    const g = ctx.createLinearGradient(0, y, 0, y + 22); g.addColorStop(0, P[0]); g.addColorStop(1, P[1]);
+    ctx.fillStyle = g; ctx.fillRect(x, y, pl.w, 22);
+    ctx.fillStyle = P[2]; ctx.fillRect(x, y, pl.w, 3);
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; for (let i = 28; i < pl.w; i += 28) ctx.fillRect(x + i, y + 3, 2, 19);
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(x, y + 19, pl.w, 3);
+    return;
+  }
+  if (world === 'lab') { // pasarela metálica del laboratorio
     const g = ctx.createLinearGradient(0, y, 0, y + 22);
     g.addColorStop(0, '#6b727c'); g.addColorStop(1, '#2a2e35');
     ctx.fillStyle = g; ctx.fillRect(x, y, pl.w, 22);
@@ -872,28 +906,106 @@ function drawGrenade(c, sc = 1) {
   c.restore();
 }
 
+// Objetos lanzables: sprites de pixel art de 16 px dibujados a x2 (cada letra es un color de la paleta)
+const PROP_ART = {
+  chair: { pal: { K: '#140c10', b: '#26324f', B: '#3c5282', h: '#7894d0', g: '#596069', G: '#aab2bd', w: '#0d0d10', s: '#c8d0da' }, rows: [
+    '................',
+    '...KKKKKKKKKK...',
+    '..KbBBBBBBBBhK..',
+    '..KbBBBBBBBhhK..',
+    '..KbBBBBBBBBhK..',
+    '..KbBBBBBBBhhK..',
+    '..KbbBBBBBBBBK..',
+    '...KKKKKKKKKK...',
+    '......KgGK......',
+    '.KKKKKKKKKKKKKK.',
+    'KbBBBBBBBBBBBhhK',
+    'KbbBBBBBBBBBBbbK',
+    '.KKKKKKKKKKKKKK.',
+    '......KgGK......',
+    '......KgsK......',
+    '..KK..KgGK..KK..',
+    '.KgGKKKgGKKKGgK.',
+    '.KwwK.KKKK.KwwK.'] },
+  extinguisher: { pal: { K: '#140c10', R: '#cc2230', r: '#8a1220', h: '#ff7a7a', S: '#b9c0c9', D: '#2a2d33', W: '#efefef', Y: '#f2c230', d: '#555b63' }, rows: [
+    '......KKKK......',
+    '....KKDDDDKKK...',
+    '...KDDDDDDDDDK..',
+    '....KKKSSKKKDK..',
+    '......KSSK..DK..',
+    '....KKKKKKKKDK..',
+    '...KRhRRRRrRKDK.',
+    '...KRhRRRRrRKDK.',
+    '...KRhRRRRrRKDK.',
+    '...KRhWWWWrRKKK.',
+    '...KRhWYYWrRK...',
+    '...KRhWDDWrRK...',
+    '...KRhWWWWrRK...',
+    '...KRhRRRRrRK...',
+    '...KRhRRRRrRK...',
+    '...KRhRRRRrRK...',
+    '....KrRRRRrRK...',
+    '....KddddddK....',
+    '.....KKKKKK.....'] },
+  rock: { pal: { K: '#14100e', s: '#6f6860', S: '#8e867c', H: '#bdb4a6', d: '#4a453f', m: '#41602c', M: '#5f8a3e' }, rows: [
+    '................',
+    '......KKKK......',
+    '....KKSSHHKK....',
+    '...KSSSHHSSsK...',
+    '..KSSHHSSSSssK..',
+    '..KSHSSSSssssK..',
+    '.KSSSSSsssssddK.',
+    '.KSSSSssmMsdddK.',
+    '.KSSssssmMddddK.',
+    '.KssssssddddddK.',
+    '.KsssssdddddddK.',
+    '..KKssddddddKK..',
+    '....KKKKKKKK....'] },
+  barrel: { pal: { K: '#140c10', O: '#cf6f2a', o: '#a8541c', r: '#6b3112', h: '#ee9d58', S: '#7b828c', s: '#a5acb6', Y: '#f2b320' }, rows: [
+    '...KKKKKKKKKK...',
+    '..KSsSSSSSSSSK..',
+    '..KOhOOOOOOorK..',
+    '..KOhOOOOOOorK..',
+    '.KSsSSSSSSSSSSK.',
+    '.KOhOOOKYKOOorK.',
+    '.KOhOOKYYYKOorK.',
+    '.KOhOKYKKYYKorK.',
+    '.KOhOKYYKYYKorK.',
+    '.KOhOOKYYYKOorK.',
+    '.KSsSSSSSSSSSSK.',
+    '.KOhOOOOOOOOorK.',
+    '.KOhOOOOOOOOorK.',
+    '.KOOOOOOOOOoorK.',
+    '..KSsSSSSSSSSK..',
+    '...KKKKKKKKKK...'] },
+  lamp: { pal: { K: '#140c10', y: '#c8902a', Y: '#f8dd78', Z: '#fff4b8', d: '#6a4a1a', D: '#a67a2e' }, rows: [
+    '......KKKK......',
+    '....KKyyyyKK....',
+    '...KyyYYYYyyK...',
+    '..KyYYZZZZYYyK..',
+    '..KyYZZZZZZYyK..',
+    '.KKKKKKKKKKKKKK.',
+    '......KddK......',
+    '......KdDK......',
+    '......KdDK......',
+    '......KdDK......',
+    '......KdDK......',
+    '....KKKddKKK....',
+    '...KdDDDDDDdK...',
+    '...KKKKKKKKKK...'] },
+};
+const PROP_CACHE = {};
+function propSprite(kind) {
+  if (PROP_CACHE[kind]) return PROP_CACHE[kind];
+  const art = PROP_ART[kind], w = 16, h = art.rows.length, c = document.createElement('canvas');
+  c.width = w * 2; c.height = h * 2;
+  const g = c.getContext('2d');
+  art.rows.forEach((row, y) => { for (let x = 0; x < w; x++) { const ch = row[x]; if (ch && ch !== '.' && art.pal[ch]) { g.fillStyle = art.pal[ch]; g.fillRect(x * 2, y * 2, 2, 2); } } });
+  return (PROP_CACHE[kind] = c);
+}
 function drawProp(kind, sc = 1) {
-  const c = ctx; c.save(); c.scale(sc, sc); c.lineJoin = 'round'; c.lineWidth = 2; c.strokeStyle = '#120a0c';
-  if (kind === 'chair') { // silla de oficina con ruedas
-    c.fillStyle = '#2e3a52'; c.fillRect(-9, -22, 18, 24); c.strokeRect(-9, -22, 18, 24);           // respaldo
-    c.fillStyle = '#3d4d6e'; c.fillRect(-12, 2, 24, 7); c.strokeRect(-12, 2, 24, 7);               // asiento
-    c.fillStyle = '#666d77'; c.fillRect(-2, 9, 4, 8);                                               // columna
-    c.strokeStyle = '#666d77'; c.lineWidth = 3; c.beginPath(); c.moveTo(-13, 19); c.lineTo(0, 16); c.lineTo(13, 19); c.stroke();
-    c.fillStyle = '#111'; c.fillRect(-15, 18, 5, 5); c.fillRect(10, 18, 5, 5);
-  } else if (kind === 'extinguisher') {
-    c.fillStyle = '#d02030'; c.fillRect(-8, -14, 16, 30); c.strokeRect(-8, -14, 16, 30);
-    c.fillStyle = '#e8e8e8'; c.fillRect(-8, -2, 16, 7);
-    c.fillStyle = '#222'; c.fillRect(-3, -20, 7, 6); c.fillRect(-9, -22, 9, 4);                     // válvula y palanca
-    c.strokeStyle = '#222'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(4, -17); c.quadraticCurveTo(14, -14, 11, -2); c.stroke();
-  } else if (kind === 'rock') {
-    c.fillStyle = '#7d756d'; c.beginPath(); c.moveTo(-14, 10); c.lineTo(-10, -6); c.lineTo(0, -13); c.lineTo(11, -7); c.lineTo(15, 10); c.closePath(); c.fill(); c.stroke();
-    c.fillStyle = '#9b938a'; c.fillRect(-4, -8, 8, 5);
-  } else { // bidón
-    c.fillStyle = '#9a4a1c'; c.fillRect(-11, -16, 22, 32); c.strokeRect(-11, -16, 22, 32);
-    c.fillStyle = '#6e3210'; c.fillRect(-11, -8, 22, 3); c.fillRect(-11, 5, 22, 3);
-    c.fillStyle = '#ffb020'; c.beginPath(); c.moveTo(0, -5); c.lineTo(5, 3); c.lineTo(-5, 3); c.closePath(); c.fill();
-  }
-  c.restore();
+  const c = propSprite(kind);
+  ctx.drawImage(c, -c.width * sc / 2, -c.height * sc / 2, c.width * sc, c.height * sc);
 }
 
 function drawItem(it, camX) {
@@ -1047,7 +1159,7 @@ function drawWeapon(p, x) {
     c.save(); c.globalCompositeOperation = 'lighter'; const g = c.createRadialGradient(hx + p.face * 14, hy, 2, hx + p.face * 14, hy, 24);
     g.addColorStop(0, 'rgba(255,170,255,.9)'); g.addColorStop(1, 'rgba(120,60,255,0)'); c.fillStyle = g; c.beginPath(); c.arc(hx + p.face * 14, hy, 24, 0, 7); c.fill(); c.restore(); return;
   }
-  if (id === 'will' && p.shootT > 0) return; // su pose de disparo ya incluye el rifle
+  if ((id === 'will' || id === 'lucas') && p.shootT > 0) return; // su pose de disparo ya incluye el arma
   const d = aimDir(p), ang = Math.atan2(d.y, d.x);
   c.save(); c.translate(hx, hy); c.rotate(ang); if (p.face < 0) c.scale(1, -1);
   c.lineJoin = 'round'; c.lineWidth = 1.6; c.strokeStyle = '#120a0c';
@@ -1055,7 +1167,7 @@ function drawWeapon(p, x) {
     c.fillStyle = '#7a4a22'; c.beginPath(); c.moveTo(-12, -1); c.lineTo(-3, -4); c.lineTo(6, -3); c.lineTo(6, 3); c.lineTo(-4, 5); c.lineTo(-12, 4); c.closePath(); c.fill(); c.stroke();
     c.fillStyle = '#3b4048'; c.fillRect(6, -3, 30, 5); c.strokeRect(6, -3, 30, 5);
     c.fillStyle = '#20242a'; c.fillRect(12, -7, 12, 4);
-  } else if (id === 'mike') { // tirachinas Wrist Rocket
+  } else if (id === 'mike' || id === 'lucas') { // tirachinas Wrist Rocket
     c.fillStyle = '#2f6fb0'; c.fillRect(-4, -2, 12, 4); c.strokeRect(-4, -2, 12, 4);
     c.strokeStyle = '#2f6fb0'; c.lineWidth = 3; c.beginPath(); c.moveTo(8, 0); c.lineTo(14, -9); c.moveTo(8, 0); c.lineTo(14, 9); c.stroke();
     c.strokeStyle = '#d8402a'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(14, -9); c.lineTo(p.shootT > 0.1 ? 16 : 5, 0); c.lineTo(14, 9); c.stroke();
@@ -1199,7 +1311,7 @@ function drawTitle(t) {
   text('SLUG', W / 2, 215 + bob, 52, '#ff2a3a', 'center', '#2a0008');
   text('SHOOT & RUN EN EL MUNDO DEL REVES', W / 2, 252, 12, '#fff', 'center');
   // desfile de personajes
-  const cs = ['will', 'eleven', 'mike', 'dustin', 'steve'];
+  const cs = ['will', 'eleven', 'mike', 'lucas', 'dustin', 'steve'];
   cs.forEach((id, i) => {
     const sc = id === 'will' ? 1.1 : 1;
     sprite(id, 'walk', Math.floor(t * 8 + i) % ATLAS[id].anims.walk.n, 70 + i * 62, 450, sc);
@@ -1217,19 +1329,19 @@ function drawSelect(t) {
   drawBackground(t * 20, t);
   ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(0, 0, W, H);
   text('ELIGE PERSONAJE', W / 2, 60, 24, '#ff3b3b', 'center');
-  const cw = 172, gap = 12, x0 = (W - (cw * 5 + gap * 4)) / 2;
+  const cw = 146, gap = 10, x0 = (W - (cw * ORDER.length + gap * (ORDER.length - 1))) / 2;
   ORDER.forEach((id, i) => {
     const c = CHARS[id], x = x0 + i * (cw + gap), y = 90, sel = i === G.sel;
     ctx.fillStyle = sel ? 'rgba(120,10,30,.8)' : 'rgba(20,5,15,.75)'; ctx.fillRect(x, y, cw, 360);
     ctx.strokeStyle = sel ? '#ffd34d' : '#6a2030'; ctx.lineWidth = sel ? 4 : 2; ctx.strokeRect(x, y, cw, 360);
-    const sc = (id === 'will' ? 1.5 : 1.35) * (sel ? 1.08 : 1);
+    const sc = (id === 'will' ? 1.45 : 1.3) * (sel ? 1.08 : 1);
     sprite(id, sel ? 'idle' : 'idle', sel ? Math.floor(t * 5) % 4 : 0, x + cw / 2, y + 190, sc);
     text(c.name, x + cw / 2, y + 225, 13, sel ? '#ffd34d' : '#fff', 'center');
     text(c.tag, x + cw / 2, y + 245, 7, '#9fe0ff', 'center');
     ['VIDA', 'VELOC', 'PODER'].forEach((lab, j) => {
       const yy = y + 268 + j * 26;
-      text(lab, x + 12, yy, 7, '#ccc');
-      for (let k = 0; k < 5; k++) { ctx.fillStyle = k < c.stats[j] ? '#e01830' : '#3a1018'; ctx.fillRect(x + 62 + k * 20, yy - 9, 16, 10); }
+      text(lab, x + 8, yy, 7, '#ccc');
+      for (let k = 0; k < 5; k++) { ctx.fillStyle = k < c.stats[j] ? '#e01830' : '#3a1018'; ctx.fillRect(x + 52 + k * 18, yy - 9, 14, 10); }
     });
   });
   text('< >  elegir      ENTER  jugar', W / 2, 500, 11, '#ffd34d', 'center');

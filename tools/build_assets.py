@@ -170,7 +170,7 @@ def build_char(name, sheet, bg, rows, thr=26, blank=(), solid=False, boost=1.0, 
             if i == 0: print(f'  [{name}.{anim}]')
             fr = cut(crop, r, bg, thr, solid, boost)
             if fr is None: continue
-            ax = fr.width/2 if anchor == 'c' else anchor[1]
+            ax = fr.width/2 if anchor == 'c' else head_x(fr) if anchor == 'torso' else anchor[1]
             items.append((anim, i, fr, ax))
     if idle_h:  # normaliza la escala para que el idle mida idle_h px (mismo tamaño que en el juego)
         h0 = next(fr.height for a, i, fr, _ in items if a == 'idle' and i == 0)
@@ -267,6 +267,12 @@ atlas['steve'] = build_char('steve', S, DARK, {
     'other':  ((1020, 815, 1440, 955), 4, 'c'),
 }, override={'walk': dict(sheet='Gemini_Generated_Image_k77auqk77auqk77a.jpeg', bg=(24, 18, 28), box=(222, 96, 1345, 370), left=(225, 437, 1345, 700), n=7, drop=[6]),
               'run': dict(sheet='Gemini_Generated_Image_k77auqk77auqk77a.jpeg', bg=(24, 18, 28), box=(222, 96, 1345, 370), left=(225, 437, 1345, 700), n=7, drop=[6])})
+# --- Lucas (lucas1.png: andar; lucas2.png: reposo, tirachinas y otras acciones)
+atlas['lucas'] = build_char('lucas', 'lucas2.png', (22, 16, 24), {
+    'idle':  ((60, 535, 530, 685), 4, 'torso'),
+    'shoot': ((40, 770, 715, 920), 5, 'torso'),
+    'other': ((755, 775, 1515, 920), 7, 'torso'),
+}, idle_h=84, override={'walk': dict(sheet='lucas1.png', bg=(26, 22, 30), box=(320, 78, 1875, 292), left=(320, 345, 1875, 560), n=8, scrub=False)})
 # --- Vecna (vicna.png): hoja nueva de 8 frames por animación, sin reescalado suave (nítido)
 def build_vecna(sheet='vicna.png', bg=(11, 8, 11), target_h=176):
     img = Image.open(os.path.join(SRC, sheet)).convert('RGB')

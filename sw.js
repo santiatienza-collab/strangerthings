@@ -1,11 +1,11 @@
 /* Service worker: deja el juego instalable y jugable sin conexión.
  * Estrategia "stale-while-revalidate": sirve de la caché y actualiza en segundo plano. */
-const CACHE = 'stranger-slug-v9';
+const CACHE = 'stranger-slug-v11';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest',
   'js/atlas.js', 'js/game.js', 'js/touch.js',
-  'assets/bg_far.png', 'assets/bg_floor.png', 'assets/lab_far.png', 'assets/lab_floor.png',
-  'assets/will.png', 'assets/eleven.png', 'assets/mike.png', 'assets/dustin.png', 'assets/steve.png',
+  'assets/bg_far.png', 'assets/bg_floor.png', 'assets/scene_lab.png', 'assets/scene_forest.png', 'assets/scene_house.png', 'assets/scene_street.png', 'assets/scene_mansion.png',
+  'assets/will.png', 'assets/lucas.png', 'assets/eleven.png', 'assets/mike.png', 'assets/dustin.png', 'assets/steve.png',
   'assets/demogorgon.png', 'assets/vecna.png',
   'icons/icon-192.png', 'icons/icon-512.png',
 ];
